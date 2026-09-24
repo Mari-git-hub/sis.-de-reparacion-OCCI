@@ -1,0 +1,15 @@
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Application\bin\Debug\net9.0\GestionIT.Application.deps.json
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Application\bin\Debug\net9.0\GestionIT.Application.dll
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Application\bin\Debug\net9.0\GestionIT.Application.pdb
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Application\bin\Debug\net9.0\GestionIT.Domain.dll
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Application\bin\Debug\net9.0\GestionIT.Domain.pdb
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Application\obj\Debug\net9.0\GestionIT.Application.csproj.AssemblyReference.cache
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Application\obj\Debug\net9.0\GestionIT.Application.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Application\obj\Debug\net9.0\GestionIT.Application.AssemblyInfoInputs.cache
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Application\obj\Debug\net9.0\GestionIT.Application.AssemblyInfo.cs
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Application\obj\Debug\net9.0\GestionIT.Application.csproj.CoreCompileInputs.cache
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Application\obj\Debug\net9.0\GestionI.488C1730.Up2Date
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Application\obj\Debug\net9.0\GestionIT.Application.dll
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Application\obj\Debug\net9.0\refint\GestionIT.Application.dll
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Application\obj\Debug\net9.0\GestionIT.Application.pdb
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Application\obj\Debug\net9.0\ref\GestionIT.Application.dll

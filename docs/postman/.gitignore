@@ -1,0 +1,27 @@
+# .gitignore
+
+# .NET
+bin/
+obj/
+*.user
+appsettings.Development.json
+appsettings.Production.json
+*.pfx
+
+# Node / Electron
+node_modules/
+dist/
+build/
+release/
+.env
+.env.*
+
+# SQL Server local
+*.mdf
+*.ldf
+
+# Sistema operativo / editor
+.vs/
+.vscode/*
+!.vscode/extensions.json
+.DS_Store

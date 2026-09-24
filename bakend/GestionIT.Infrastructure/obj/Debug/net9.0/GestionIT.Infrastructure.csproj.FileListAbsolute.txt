@@ -1,0 +1,17 @@
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Infrastructure\bin\Debug\net9.0\GestionIT.Infrastructure.deps.json
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Infrastructure\bin\Debug\net9.0\GestionIT.Infrastructure.dll
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Infrastructure\bin\Debug\net9.0\GestionIT.Infrastructure.pdb
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Infrastructure\bin\Debug\net9.0\GestionIT.Application.dll
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Infrastructure\bin\Debug\net9.0\GestionIT.Domain.dll
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Infrastructure\bin\Debug\net9.0\GestionIT.Application.pdb
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Infrastructure\bin\Debug\net9.0\GestionIT.Domain.pdb
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Infrastructure\obj\Debug\net9.0\GestionIT.Infrastructure.csproj.AssemblyReference.cache
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Infrastructure\obj\Debug\net9.0\GestionIT.Infrastructure.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Infrastructure\obj\Debug\net9.0\GestionIT.Infrastructure.AssemblyInfoInputs.cache
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Infrastructure\obj\Debug\net9.0\GestionIT.Infrastructure.AssemblyInfo.cs
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Infrastructure\obj\Debug\net9.0\GestionIT.Infrastructure.csproj.CoreCompileInputs.cache
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Infrastructure\obj\Debug\net9.0\GestionI.2C086966.Up2Date
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Infrastructure\obj\Debug\net9.0\GestionIT.Infrastructure.dll
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Infrastructure\obj\Debug\net9.0\refint\GestionIT.Infrastructure.dll
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Infrastructure\obj\Debug\net9.0\GestionIT.Infrastructure.pdb
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Infrastructure\obj\Debug\net9.0\ref\GestionIT.Infrastructure.dll

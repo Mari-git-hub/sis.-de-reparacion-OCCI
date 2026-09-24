@@ -1,0 +1,125 @@
+{
+  "version": 3,
+  "targets": {
+    "net9.0": {
+      "GestionIT.Application/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v9.0",
+        "dependencies": {
+          "GestionIT.Domain": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/GestionIT.Application.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/GestionIT.Application.dll": {}
+        }
+      },
+      "GestionIT.Domain/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v9.0",
+        "compile": {
+          "bin/placeholder/GestionIT.Domain.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/GestionIT.Domain.dll": {}
+        }
+      }
+    }
+  },
+  "libraries": {
+    "GestionIT.Application/1.0.0": {
+      "type": "project",
+      "path": "../GestionIT.Application/GestionIT.Application.csproj",
+      "msbuildProject": "../GestionIT.Application/GestionIT.Application.csproj"
+    },
+    "GestionIT.Domain/1.0.0": {
+      "type": "project",
+      "path": "../GestionIT.Domain/GestionIT.Domain.csproj",
+      "msbuildProject": "../GestionIT.Domain/GestionIT.Domain.csproj"
+    }
+  },
+  "projectFileDependencyGroups": {
+    "net9.0": [
+      "GestionIT.Application >= 1.0.0",
+      "GestionIT.Domain >= 1.0.0"
+    ]
+  },
+  "packageFolders": {
+    "C:\\Users\\marij\\.nuget\\packages\\": {},
+    "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
+  },
+  "project": {
+    "version": "1.0.0",
+    "restore": {
+      "projectUniqueName": "C:\\Users\\marij\\OneDrive\\Desktop\\sis de reparacion  e insumos\\bakend\\GestionIT.Infrastructure\\GestionIT.Infrastructure.csproj",
+      "projectName": "GestionIT.Infrastructure",
+      "projectPath": "C:\\Users\\marij\\OneDrive\\Desktop\\sis de reparacion  e insumos\\bakend\\GestionIT.Infrastructure\\GestionIT.Infrastructure.csproj",
+      "packagesPath": "C:\\Users\\marij\\.nuget\\packages\\",
+      "outputPath": "C:\\Users\\marij\\OneDrive\\Desktop\\sis de reparacion  e insumos\\bakend\\GestionIT.Infrastructure\\obj\\",
+      "projectStyle": "PackageReference",
+      "fallbackFolders": [
+        "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+      ],
+      "configFilePaths": [
+        "C:\\Users\\marij\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+      ],
+      "originalTargetFrameworks": [
+        "net9.0"
+      ],
+      "sources": {
+        "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+        "C:\\Program Files\\dotnet\\library-packs": {},
+        "https://api.nuget.org/v3/index.json": {}
+      },
+      "frameworks": {
+        "net9.0": {
+          "targetAlias": "net9.0",
+          "projectReferences": {
+            "C:\\Users\\marij\\OneDrive\\Desktop\\sis de reparacion  e insumos\\bakend\\GestionIT.Application\\GestionIT.Application.csproj": {
+              "projectPath": "C:\\Users\\marij\\OneDrive\\Desktop\\sis de reparacion  e insumos\\bakend\\GestionIT.Application\\GestionIT.Application.csproj"
+            },
+            "C:\\Users\\marij\\OneDrive\\Desktop\\sis de reparacion  e insumos\\bakend\\GestionIT.Domain\\GestionIT.Domain.csproj": {
+              "projectPath": "C:\\Users\\marij\\OneDrive\\Desktop\\sis de reparacion  e insumos\\bakend\\GestionIT.Domain\\GestionIT.Domain.csproj"
+            }
+          }
+        }
+      },
+      "warningProperties": {
+        "warnAsError": [
+          "NU1605"
+        ]
+      },
+      "restoreAuditProperties": {
+        "enableAudit": "true",
+        "auditLevel": "low",
+        "auditMode": "direct"
+      },
+      "SdkAnalysisLevel": "9.0.300"
+    },
+    "frameworks": {
+      "net9.0": {
+        "targetAlias": "net9.0",
+        "imports": [
+          "net461",
+          "net462",
+          "net47",
+          "net471",
+          "net472",
+          "net48",
+          "net481"
+        ],
+        "assetTargetFallback": true,
+        "warn": true,
+        "frameworkReferences": {
+          "Microsoft.NETCore.App": {
+            "privateAssets": "all"
+          }
+        },
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.305/PortableRuntimeIdentifierGraph.json"
+      }
+    }
+  }
+}
