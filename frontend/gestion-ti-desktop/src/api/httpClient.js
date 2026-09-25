@@ -2,7 +2,7 @@ import axios from "axios";
 
 // Instancia principal
 const httpClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000/api/v1", // fallback si no existe el .env
+  baseURL: import.meta.env.VITE_API_URL || "https://localhost:5094/api/v1", // fallback si no existe el .env
   timeout: 10000,
   headers: {
     "Content-Type": "application/json",
@@ -26,7 +26,7 @@ async function intentarRefrescarToken() {
 
     // Llamada directa con axios limpio para evitar bucles infinitos en el interceptor
     const response = await axios.post(
-      `${import.meta.env.VITE_API_URL || "http://localhost:5000/api/v1"}/auth/refresh`,
+      `${import.meta.env.VITE_API_URL || "https://localhost:5094/api/v1"}/auth/refresh`,
       { refreshToken }
     );
 

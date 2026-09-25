@@ -20,7 +20,7 @@ export default function Navbar() {
         <Link to="/ingreso" style={{ color: '#93c5fd', textDecoration: 'none' }}>Formato Ingreso</Link>
         <Link to="/salida" style={{ color: '#93c5fd', textDecoration: 'none' }}>Formato Salida</Link>
         <Link to="/alertas" style={{ color: '#93c5fd', textDecoration: 'none' }}>Alertas Insumos</Link>
-        <Link to="/usuarios" style={{ color: '#93c5fd', textDecoration: 'none' }}>Usuarios</Link>
+        <Link to="/reportes" style={{ color: '#93c5fd', textDecoration: 'none' }}>Reportes</Link>
         <button 
           onClick={logout} 
           style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer' }}

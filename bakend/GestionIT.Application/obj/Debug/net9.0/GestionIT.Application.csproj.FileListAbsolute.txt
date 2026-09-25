@@ -13,3 +13,4 @@ C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Ap
 C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Application\obj\Debug\net9.0\refint\GestionIT.Application.dll
 C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Application\obj\Debug\net9.0\GestionIT.Application.pdb
 C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Application\obj\Debug\net9.0\ref\GestionIT.Application.dll
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Application\obj\Debug\net9.0\GestionIT.Application.sourcelink.json

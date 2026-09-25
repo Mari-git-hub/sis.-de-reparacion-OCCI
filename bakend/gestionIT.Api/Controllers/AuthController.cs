@@ -1,11 +1,13 @@
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
-using GestionIT.Api.Seguridad; // Corregido: GestionIT (no GestionTI)
+using GestionIT.Api.Seguridad;
 
 namespace gestionIT.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/auth")]
+[EnableCors("PermitirReact")] // Asegura que las políticas de CORS se apliquen a este controlador
 public class AuthController : ControllerBase
 {
     private readonly IConfiguration _config;
@@ -55,8 +57,13 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("login")]
-    public async Task<IActionResult> Login(LoginRequest request)
+    public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
+        if (request == null || string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
+        {
+            return BadRequest(new { message = "Debe proporcionar correo y contraseña." });
+        }
+
         using var conn = new SqlConnection(_config.GetConnectionString("Default"));
         await conn.OpenAsync();
 

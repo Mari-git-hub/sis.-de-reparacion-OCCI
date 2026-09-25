@@ -89,3 +89,4 @@ C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Ap
 C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\obj\Debug\net9.0\GestionIT.Api.pdb
 C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\obj\Debug\net9.0\GestionIT.Api.genruntimeconfig.cache
 C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\obj\Debug\net9.0\ref\GestionIT.Api.dll
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\obj\Debug\net9.0\GestionIT.Api.sourcelink.json

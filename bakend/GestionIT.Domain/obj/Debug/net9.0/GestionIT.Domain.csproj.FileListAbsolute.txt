@@ -9,3 +9,4 @@ C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Do
 C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Domain\obj\Debug\net9.0\refint\GestionIT.Domain.dll
 C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Domain\obj\Debug\net9.0\GestionIT.Domain.pdb
 C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Domain\obj\Debug\net9.0\ref\GestionIT.Domain.dll
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\GestionIT.Domain\obj\Debug\net9.0\GestionIT.Domain.sourcelink.json

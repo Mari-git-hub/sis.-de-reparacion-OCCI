@@ -6,17 +6,29 @@ using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Base de datos SQL Server con reintentos automáticos
+// 1. Configuración de CORS para permitir solicitudes desde React/Vite
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("PermitirReact", policy =>
+    {
+        policy.WithOrigins("http://localhost:5173")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
+
+// 2. Base de datos SQL Server con reintentos automáticos
 builder.Services.AddDbContext<DbContext>(options =>
     options.UseSqlServer(
         builder.Configuration.GetConnectionString("Default"),
         sqlOptions => sqlOptions.EnableRetryOnFailure(3)
     ));
 
-// 2. Controladores
+// 3. Controladores
 builder.Services.AddControllers();
 
-// 3. Autenticación JWT
+// 4. Autenticación JWT
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "ClaveSecretaSuperSeguraParaDesarrollo12345!";
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -33,7 +45,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-// 4. Políticas de Autorización
+// 5. Políticas de Autorización
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("AdminIT", policy => policy.RequireRole("Admin IT"));
@@ -42,8 +54,7 @@ builder.Services.AddAuthorization(options =>
 
 builder.Services.AddScoped<GestionIT.Api.Seguridad.TokenService>();
 
-
-// 5. Configuración de Swagger
+// 6. Configuración de Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -77,6 +88,7 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
+// Endpoint de prueba de conexión a Base de Datos
 app.MapGet("/test-db", async () =>
 {
     try
@@ -99,7 +111,11 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
+
+// APARTADO CRÍTICO: El middleware de CORS debe estar ANTES de Authentication y Authorization
+app.UseCors("PermitirReact");
+
 app.UseAuthentication();
 app.UseAuthorization();
 
