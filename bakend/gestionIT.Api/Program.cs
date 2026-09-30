@@ -32,18 +32,49 @@ builder.Services.AddControllers();
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "ClaveSecretaSuperSeguraParaDesarrollo12345!";
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
     {
-        options.TokenValidationParameters = new TokenValidationParameters
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+
+        ValidIssuer = builder.Configuration["Jwt:Issuer"],
+        ValidAudience = builder.Configuration["Jwt:Audience"],
+
+        IssuerSigningKey = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes(jwtKey)
+        )
+    };
+
+    options.Events = new JwtBearerEvents
+    {
+        OnAuthenticationFailed = context =>
         {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
-        };
-    });
+            Console.WriteLine("========================================");
+            Console.WriteLine("ERROR DE AUTENTICACION JWT");
+            Console.WriteLine(context.Exception.GetType().Name);
+            Console.WriteLine(context.Exception.Message);
+            Console.WriteLine("========================================");
+
+            return Task.CompletedTask;
+        },
+
+        OnTokenValidated = context =>
+        {
+            Console.WriteLine("========================================");
+            Console.WriteLine("JWT VALIDADO CORRECTAMENTE");
+            Console.WriteLine("Usuario: " +
+                context.Principal?.FindFirst("sub")?.Value);
+            Console.WriteLine("Rol: " +
+                context.Principal?.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value);
+            Console.WriteLine("========================================");
+
+            return Task.CompletedTask;
+        }
+    };
+});
 
 // 5. Políticas de Autorización
 builder.Services.AddAuthorization(options =>
@@ -87,6 +118,7 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 var app = builder.Build();
+
 
 // Endpoint de prueba de conexión a Base de Datos
 app.MapGet("/test-db", async () =>

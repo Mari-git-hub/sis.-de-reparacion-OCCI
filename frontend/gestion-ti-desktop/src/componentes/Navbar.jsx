@@ -16,6 +16,17 @@ export default function Navbar() {
       </div>
       <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
         <Link to="/inventario" style={{ color: '#93c5fd', textDecoration: 'none' }}>Inventario</Link>
+        {usuario.rol === 'Admin IT' && (
+  <Link
+    to="/usuarios"
+    style={{
+      color: '#93c5fd',
+      textDecoration: 'none'
+    }}
+  >
+    Usuarios
+  </Link>
+)}
         <Link to="/reparaciones" style={{ color: '#93c5fd', textDecoration: 'none' }}>Ordenes</Link>
         <Link to="/ingreso" style={{ color: '#93c5fd', textDecoration: 'none' }}>Formato Ingreso</Link>
         <Link to="/salida" style={{ color: '#93c5fd', textDecoration: 'none' }}>Formato Salida</Link>

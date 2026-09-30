@@ -25,7 +25,7 @@ export default function Login() {
       };
 
       // Iniciamos sesión pasando el usuario y el token
-      login(usuario, res.data.token, res.data.token);
+      login(usuario, res.data.token, res.data.refreshToken);
     } catch (err) {
       // Capturamos el mensaje de error exacto devuelto por C# (o un mensaje genérico)
       const msg = err.response?.data?.message || err.response?.data?.mensaje || 'Error al iniciar sesión. Verifica tus credenciales.';
