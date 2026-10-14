@@ -1,1011 +1,1399 @@
 import { useState, useEffect, useCallback } from 'react';
+
+import { useNavigate } from 'react-router-dom';
+
 import httpClient from '../api/httpClient';
 
+import './RegistroInventario.css';
+
 export default function InventarioAdmin() {
-  const [inventario, setInventario] = useState([]);
-  const [busqueda, setBusqueda] = useState('');
+
+  const navigate = useNavigate();
+
+  const [insumos, setInsumos] = useState([]);
+
+  const [equipos, setEquipos] = useState([]);
+
+  const [busquedaInsumos, setBusquedaInsumos] = useState('');
+
+  const [busquedaEquipos, setBusquedaEquipos] = useState('');
+
   const [filtroTipo, setFiltroTipo] = useState('Todos');
-  const [cargando, setCargando] = useState(true);
+
+  const [cargandoInsumos, setCargandoInsumos] = useState(true);
+
+  const [cargandoEquipos, setCargandoEquipos] = useState(true);
+
+  const [errorInsumos, setErrorInsumos] = useState('');
+
+  const [errorEquipos, setErrorEquipos] = useState('');
+
   const [edicion, setEdicion] = useState(null);
 
-  // ============================================================
-  // CARGAR INVENTARIO
-  // ============================================================
-  const cargarInventario = useCallback(async () => {
-    setCargando(true);
+  // CONSULTAR INSUMOS
+
+  const cargarInsumos = useCallback(async () => {
+
+    setCargandoInsumos(true);
+
+    setErrorInsumos('');
 
     try {
-      const res = await httpClient.get('/inventario-admin');
 
-      setInventario(
-        Array.isArray(res.data) ? res.data : []
-      );
+      const respuesta = await httpClient.get('/inventario-admin');
+
+      const datos = respuesta.data;
+
+      const lista = Array.isArray(datos)
+        ? datos
+        : Array.isArray(datos?.$values)
+          ? datos.$values
+          : Array.isArray(datos?.items)
+            ? datos.items
+            : Array.isArray(datos?.insumos)
+              ? datos.insumos
+              : Array.isArray(datos?.consumibles)
+                ? datos.consumibles
+                : null;
+
+      if (!lista) {
+        throw new Error('La API no devolvió una lista de insumos.');
+      }
+
+      setInsumos(lista);
+
     } catch (error) {
-      console.error(
-        'Error al cargar inventario:',
-        error
+
+      console.error('Error al consultar insumos:', error);
+
+      setErrorInsumos(
+
+        'No fue posible consultar los insumos. Verifica la API.'
+
       );
 
-      setInventario([]);
     } finally {
-      setCargando(false);
+
+      setCargandoInsumos(false);
+
     }
+
   }, []);
 
-  // ============================================================
-  // CARGAR AL ABRIR LA PANTALLA
-  // ============================================================
+  // CONSULTAR EQUIPOS
+
+  const cargarEquipos = useCallback(async () => {
+
+    setCargandoEquipos(true);
+
+    setErrorEquipos('');
+
+    try {
+
+      const respuesta = await httpClient.get('/equipos');
+
+      const datos = respuesta.data;
+
+      // Acepta una lista directa o algunas respuestas comunes de API.
+
+      const lista = Array.isArray(datos)
+
+        ? datos
+
+        : Array.isArray(datos?.$values)
+
+          ? datos.$values
+
+          : Array.isArray(datos?.items)
+
+            ? datos.items
+
+            : Array.isArray(datos?.equipos)
+
+              ? datos.equipos
+
+              : null;
+
+      if (!lista) {
+
+        throw new Error('La API no devolvió una lista de equipos.');
+
+      }
+
+      setEquipos(lista);
+
+    } catch (error) {
+
+      console.error('Error al consultar equipos:', error);
+
+      setErrorEquipos(
+
+        'No fue posible consultar los equipos. Comprueba el endpoint GET /equipos y la autorización.'
+
+      );
+
+    } finally {
+
+      setCargandoEquipos(false);
+
+    }
+
+  }, []);
+
+  // CARGAR AMBOS INVENTARIOS
+
+  const actualizarTodo = useCallback(() => {
+
+    cargarInsumos();
+
+    cargarEquipos();
+
+  }, [cargarInsumos, cargarEquipos]);
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    cargarInventario();
-  }, [cargarInventario]);
+    actualizarTodo();
 
-  // ============================================================
-  // GUARDAR EDICIÓN
-  // ============================================================
+  }, [actualizarTodo]);
+
+  // GUARDAR CAMBIOS DE UN INSUMO
+
   const guardarEdicion = async (id) => {
-    if (!edicion) {
+
+    if (!edicion) return;
+
+    const stockActual = Number(edicion.stockActual);
+
+    const stockMinimo = Number(edicion.stockMinimo);
+
+    if (!Number.isInteger(stockActual) || stockActual < 0) {
+
+      alert('El stock actual debe ser un número entero igual o mayor que cero.');
+
       return;
+
     }
 
-    const stockActual = parseInt(
-      edicion.stockActual,
-      10
-    );
+    if (!Number.isInteger(stockMinimo) || stockMinimo < 0) {
 
-    const stockMinimo = parseInt(
-      edicion.stockMinimo,
-      10
-    );
+      alert('El stock mínimo debe ser un número entero igual o mayor que cero.');
 
-    if (
-      Number.isNaN(stockActual) ||
-      stockActual < 0
-    ) {
-      alert(
-        'El stock actual debe ser un número mayor o igual a 0.'
-      );
       return;
-    }
 
-    if (
-      Number.isNaN(stockMinimo) ||
-      stockMinimo < 0
-    ) {
-      alert(
-        'El stock mínimo debe ser un número mayor o igual a 0.'
-      );
-      return;
     }
 
     try {
-      await httpClient.put(
-        `/inventario-admin/${id}`,
-        {
-          stockActual,
-          stockMinimo,
-          marca: edicion.marca || '',
-          modelo: edicion.modelo || ''
-        }
-      );
 
-      alert(
-        'Inventario actualizado correctamente.'
-      );
+      await httpClient.put(`/inventario-admin/${id}`, {
+
+        stockActual,
+
+        stockMinimo,
+
+        marca: edicion.marca || '',
+
+        modelo: edicion.modelo || ''
+
+      });
+
+      alert('Insumo actualizado correctamente.');
 
       setEdicion(null);
 
-      await cargarInventario();
+      await cargarInsumos();
+
     } catch (error) {
-      console.error(
-        'Error al actualizar el inventario:',
-        error
-      );
+
+      console.error('Error al actualizar insumo:', error);
 
       alert(
-        'Error al actualizar el inventario.'
+
+        error.response?.data?.message ||
+
+        'No se pudo actualizar el insumo.'
+
       );
+
     }
+
   };
 
-  // ============================================================
-  // FILTRADO
-  // ============================================================
-  const textoBusqueda =
-    busqueda.toLowerCase().trim();
+  // FILTRAR INSUMOS
 
-  const inventarioFiltrado =
-    inventario.filter((item) => {
-      const codigo = String(
-        item.codigo ?? ''
-      ).toLowerCase();
+  const textoInsumos = busquedaInsumos.trim().toLowerCase();
 
-      const marca = String(
-        item.marca ?? ''
-      ).toLowerCase();
+  const insumosFiltrados = insumos.filter((item) => {
 
-      const modelo = String(
-        item.modelo ?? ''
-      ).toLowerCase();
+    const codigo = String(item.codigo ?? '').toLowerCase();
 
-      const coincideTexto =
-        codigo.includes(textoBusqueda) ||
-        marca.includes(textoBusqueda) ||
-        modelo.includes(textoBusqueda);
+    const marca = String(item.marca ?? '').toLowerCase();
 
-      const coincideTipo =
-        filtroTipo === 'Todos' ||
-        item.tipo === filtroTipo;
+    const modelo = String(item.modelo ?? '').toLowerCase();
 
-      return (
-        coincideTexto &&
-        coincideTipo
-      );
-    });
+    const tipo = String(item.tipo ?? '').trim().toLocaleUpperCase('es-HN');
 
-  // ============================================================
-  // MÉTRICAS
-  // ============================================================
-  const totalItems =
-    inventario.length;
+    const coincideTexto =
 
-  const stockCriticoCount =
-    inventario.filter((item) => {
-      const stockActual = Number(
-        item.stockActual ?? 0
-      );
+      codigo.includes(textoInsumos) ||
 
-      const stockMinimo = Number(
-        item.stockMinimo ?? 0
-      );
+      marca.includes(textoInsumos) ||
 
-      return stockActual <= stockMinimo;
-    }).length;
+      modelo.includes(textoInsumos);
 
-  const alertasDespachoCount =
-    inventario.filter((item) => {
-      if (
-        item.diasSinDespacho === null ||
-        item.diasSinDespacho === undefined
-      ) {
-        return false;
-      }
+    const coincideTipo =
 
-      return (
-        Number(item.diasSinDespacho) >= 15
-      );
-    }).length;
+      filtroTipo === 'Todos' || tipo === filtroTipo;
 
-  // ============================================================
-  // RENDER
-  // ============================================================
+    return coincideTexto && coincideTipo;
+
+  });
+
+  // FILTRAR EQUIPOS
+
+  const textoEquipos = busquedaEquipos.trim().toLowerCase();
+
+  const equiposFiltrados = equipos.filter((equipo) => {
+
+    const campos = [
+
+      equipo.codigoInterno,
+
+      equipo.codigo_interno,
+
+      equipo.nombre,
+
+      equipo.tipo,
+
+      equipo.marca,
+
+      equipo.modelo,
+
+      equipo.serie,
+
+      equipo.estadoActual,
+
+      equipo.estado_actual,
+
+      equipo.ubicacionTipo,
+
+      equipo.ubicacionNombre,
+
+      equipo.tiendaNombre,
+
+      equipo.oficinaNombre
+
+    ];
+
+    return campos.some((campo) =>
+
+      String(campo ?? '').toLowerCase().includes(textoEquipos)
+
+    );
+
+  });
+
+  // ESTILOS
+
+  const boton = (color) => ({
+
+    padding: '10px 14px',
+
+    backgroundColor: color,
+
+    color: '#ffffff',
+
+    border: 'none',
+
+    borderRadius: '7px',
+
+    cursor: 'pointer',
+
+    fontWeight: '600',
+
+    fontSize: '13px'
+
+  });
+
+  const campo = {
+
+    padding: '10px',
+
+    width: '100%',
+
+    boxSizing: 'border-box',
+
+    borderRadius: '6px',
+
+    border: '1px solid #475569',
+
+    backgroundColor: '#0f172a',
+
+    color: '#f8fafc'
+
+  };
+
+  const tarjeta = {
+
+    backgroundColor: '#1e293b',
+
+    padding: '18px',
+
+    borderRadius: '10px',
+
+    border: '1px solid #334155'
+
+  };
+
+  const celda = {
+
+    padding: '12px 10px',
+
+    borderBottom: '1px solid #334155',
+
+    textAlign: 'left',
+
+    verticalAlign: 'middle',
+
+    color: '#e2e8f0'
+
+  };
+
+  const obtenerUbicacion = (equipo) => {
+
+    const oficina =
+
+      equipo.oficinaNombre ??
+
+      equipo.oficina_nombre;
+
+    const tienda =
+
+      equipo.tiendaNombre ??
+
+      equipo.tienda_nombre;
+
+    const tipoUbicacion =
+
+      equipo.ubicacionTipo ??
+
+      equipo.ubicacion_tipo;
+
+    const nombreUbicacion =
+
+      equipo.ubicacionNombre ??
+
+      equipo.ubicacion_nombre;
+
+    if (oficina) return `Oficina: ${oficina}`;
+
+    if (tienda) return `Tienda: ${tienda}`;
+
+    if (tipoUbicacion && nombreUbicacion) {
+
+      return `${tipoUbicacion}: ${nombreUbicacion}`;
+
+    }
+
+    if (tipoUbicacion) return String(tipoUbicacion);
+
+    if (nombreUbicacion) return String(nombreUbicacion);
+
+    // Alternativa si la API aún no devuelve los nombres.
+
+    if (equipo.oficinaId ?? equipo.oficina_id) return 'Oficina';
+
+    if (equipo.tiendaId ?? equipo.tienda_id) return 'Tienda';
+
+    return 'Sin ubicación asignada';
+
+  };
+
+  const formatoFecha = (fecha) => {
+
+    if (!fecha) return '—';
+
+    const valor = new Date(fecha);
+
+    if (Number.isNaN(valor.getTime())) return '—';
+
+    return valor.toLocaleDateString('es-HN');
+
+  };
+
+  const stockCritico = insumos.filter(
+
+    (item) =>
+
+      Number(item.stockActual ?? 0) <=
+
+      Number(item.stockMinimo ?? 0)
+
+  ).length;
+
+  const sinDespacho = insumos.filter(
+
+    (item) =>
+
+      item.diasSinDespacho != null &&
+
+      Number(item.diasSinDespacho) >= 15
+
+  ).length;
+
   return (
+
     <div
+
       style={{
-        padding: '20px',
-        maxWidth: '1200px',
+
+        maxWidth: '1500px',
+
         margin: '0 auto',
+
+        padding: '20px',
+
         color: '#f8fafc',
-        fontFamily: 'sans-serif'
+
+        fontFamily: 'Arial, sans-serif'
+
       }}
+
     >
-      {/* ======================================================
-          CABECERA
-      ====================================================== */}
-      <div
+
+      {/* ENCABEZADO */}
+
+      <header
+
         style={{
+
           display: 'flex',
+
           justifyContent: 'space-between',
+
           alignItems: 'center',
-          marginBottom: '20px',
-          gap: '20px',
-          flexWrap: 'wrap'
+
+          flexWrap: 'wrap',
+
+          gap: '15px',
+
+          marginBottom: '25px'
+
         }}
+
       >
+
         <div>
-          <h2
-            style={{
-              margin: 0,
-              color: '#38bdf8'
-            }}
-          >
-            Panel de Control de Inventario
+
+          <h2 style={{ color: '#38bdf8', margin: 0 }}>
+
+            Inventario general
+
           </h2>
 
-          <p
-            style={{
-              margin: '5px 0 0 0',
-              color: '#94a3b8',
-              fontSize: '14px'
-            }}
-          >
-            Gestión global, monitoreo de stock y
-            alertas preventivas.
+          <p style={{ color: '#94a3b8' }}>
+
+            Consulta los equipos y los insumos registrados.
+
           </p>
+
         </div>
 
-        <button
-          type="button"
-          onClick={cargarInventario}
-          disabled={cargando}
-          style={{
-            padding: '10px 16px',
-            background: cargando
-              ? '#475569'
-              : '#0284c7',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '6px',
-            cursor: cargando
-              ? 'not-allowed'
-              : 'pointer',
-            fontWeight: 'bold'
-          }}
-        >
-          {cargando
-            ? '⏳ Cargando...'
-            : '🔄 Actualizar'}
-        </button>
-      </div>
+        <div
 
-      {/* ======================================================
-          MÉTRICAS
-      ====================================================== */}
+          style={{
+
+            display: 'flex',
+
+            flexWrap: 'wrap',
+
+            gap: '10px'
+
+          }}
+
+        >
+
+          <button
+
+            type="button"
+
+            onClick={() => navigate('/inventario/registrar-insumo')}
+
+            style={boton('#15803d')}
+
+          >
+
+            + Agregar insumo
+
+          </button>
+
+          <button
+
+            type="button"
+
+            onClick={() => navigate('/inventario/registrar-equipo')}
+
+            style={boton('#0369a1')}
+
+          >
+
+            + Agregar equipo
+
+          </button>
+
+          <button
+
+            type="button"
+
+            onClick={actualizarTodo}
+
+            style={boton('#475569')}
+
+          >
+
+            Actualizar inventario
+
+          </button>
+
+        </div>
+
+      </header>
+
+      {/* INDICADORES */}
+
       <div
+
         style={{
+
           display: 'grid',
-          gridTemplateColumns:
-            'repeat(auto-fit, minmax(220px, 1fr))',
+
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+
           gap: '15px',
-          marginBottom: '25px'
+
+          marginBottom: '30px'
+
         }}
+
       >
-        {/* TOTAL */}
-        <div
-          style={{
-            background: '#1e293b',
-            padding: '15px',
-            borderRadius: '8px',
-            borderLeft:
-              '4px solid #38bdf8'
-          }}
-        >
-          <span
-            style={{
-              color: '#94a3b8',
-              fontSize: '13px'
-            }}
-          >
-            Total Insumos
-          </span>
 
-          <h3
-            style={{
-              margin: '5px 0 0 0',
-              fontSize: '24px'
-            }}
-          >
-            {totalItems}
-          </h3>
+        <div style={tarjeta}>
+
+          <p style={{ color: '#94a3b8', margin: 0 }}>
+
+            Equipos registrados
+
+          </p>
+
+          <h2 style={{ color: '#38bdf8', marginBottom: 0 }}>
+
+            {equipos.length}
+
+          </h2>
+
         </div>
 
-        {/* STOCK CRÍTICO */}
-        <div
-          style={{
-            background: '#1e293b',
-            padding: '15px',
-            borderRadius: '8px',
-            borderLeft:
-              '4px solid #ef4444'
-          }}
-        >
-          <span
-            style={{
-              color: '#94a3b8',
-              fontSize: '13px'
-            }}
-          >
-            Stock Crítico
-          </span>
+        <div style={tarjeta}>
 
-          <h3
-            style={{
-              margin: '5px 0 0 0',
-              fontSize: '24px',
-              color: '#f87171'
-            }}
-          >
-            {stockCriticoCount}
-          </h3>
+          <p style={{ color: '#94a3b8', margin: 0 }}>
+
+            Insumos registrados
+
+          </p>
+
+          <h2 style={{ color: '#4ade80', marginBottom: 0 }}>
+
+            {insumos.length}
+
+          </h2>
+
         </div>
 
-        {/* SIN DESPACHO */}
-        <div
-          style={{
-            background: '#1e293b',
-            padding: '15px',
-            borderRadius: '8px',
-            borderLeft:
-              '4px solid #f59e0b'
-          }}
-        >
-          <span
-            style={{
-              color: '#94a3b8',
-              fontSize: '13px'
-            }}
-          >
-            Sin Despacho (&gt;15 días)
-          </span>
+        <div style={tarjeta}>
 
-          <h3
-            style={{
-              margin: '5px 0 0 0',
-              fontSize: '24px',
-              color: '#fbbf24'
-            }}
-          >
-            {alertasDespachoCount}
-          </h3>
+          <p style={{ color: '#94a3b8', margin: 0 }}>
+
+            Insumos con stock crítico
+
+          </p>
+
+          <h2 style={{ color: '#f87171', marginBottom: 0 }}>
+
+            {stockCritico}
+
+          </h2>
+
         </div>
+
+        <div style={tarjeta}>
+
+          <p style={{ color: '#94a3b8', margin: 0 }}>
+
+            Sin despacho por 15 días o más
+
+          </p>
+
+          <h2 style={{ color: '#fbbf24', marginBottom: 0 }}>
+
+            {sinDespacho}
+
+          </h2>
+
+        </div>
+
       </div>
 
-      {/* ======================================================
-          FILTROS
-      ====================================================== */}
-      <div
-        style={{
-          background: '#1e293b',
-          padding: '15px',
-          borderRadius: '8px',
-          marginBottom: '20px',
-          display: 'flex',
-          gap: '15px',
-          flexWrap: 'wrap'
-        }}
-      >
+      {/* TABLA DE EQUIPOS */}
+
+      <section style={{ marginBottom: '35px' }}>
+
+        <h3 style={{ color: '#38bdf8' }}>
+
+          Equipos registrados
+
+        </h3>
+
+        <p style={{ color: '#94a3b8' }}>
+
+          Aquí aparecen los equipos de oficina y de tienda con sus características.
+
+        </p>
+
         <input
+
           type="text"
-          placeholder="🔍 Buscar por código, marca o modelo..."
-          value={busqueda}
-          onChange={(e) =>
-            setBusqueda(e.target.value)
-          }
-          style={{
-            flex: 1,
-            minWidth: '250px',
-            padding: '10px',
-            background: '#0f172a',
-            border:
-              '1px solid #475569',
-            borderRadius: '6px',
-            color: '#fff'
-          }}
+
+          value={busquedaEquipos}
+
+          onChange={(e) => setBusquedaEquipos(e.target.value)}
+
+          placeholder="Buscar equipo por código, tipo, marca, modelo, serie o ubicación..."
+
+          style={{ ...campo, marginBottom: '15px' }}
+
         />
 
-        <select
-          value={filtroTipo}
-          onChange={(e) =>
-            setFiltroTipo(e.target.value)
-          }
-          style={{
-            padding: '10px',
-            background: '#0f172a',
-            border:
-              '1px solid #475569',
-            borderRadius: '6px',
-            color: '#fff',
-            minWidth: '150px'
-          }}
-        >
-          <option value="Todos">
-            Todos los tipos
-          </option>
+        {cargandoEquipos ? (
 
-          <option value="Tinta">
-            Tinta
-          </option>
+          <p>Cargando equipos...</p>
 
-          <option value="Toner">
-            Tóner
-          </option>
+        ) : errorEquipos ? (
 
-          <option value="Tambor">
-            Tambor
-          </option>
+          <div
 
-          <option value="Cinta">
-            Cinta
-          </option>
-        </select>
-      </div>
-
-      {/* ======================================================
-          TABLA
-      ====================================================== */}
-      <div
-        style={{
-          background: '#1e293b',
-          borderRadius: '8px',
-          overflow: 'hidden',
-          border:
-            '1px solid #334155'
-        }}
-      >
-        <div
-          style={{
-            overflowX: 'auto'
-          }}
-        >
-          <table
             style={{
-              width: '100%',
-              borderCollapse:
-                'collapse',
-              textAlign: 'left',
-              fontSize: '14px'
+
+              ...tarjeta,
+
+              color: '#fca5a5',
+
+              marginBottom: '15px'
+
             }}
+
           >
-            <thead>
-              <tr
-                style={{
-                  background: '#0f172a',
-                  color: '#94a3b8',
-                  borderBottom:
-                    '1px solid #334155'
-                }}
-              >
-                <th
-                  style={{
-                    padding: '12px'
-                  }}
-                >
-                  Código
-                </th>
 
-                <th
-                  style={{
-                    padding: '12px'
-                  }}
-                >
-                  Tipo / Detalles
-                </th>
+            {errorEquipos}
 
-                <th
-                  style={{
-                    padding: '12px'
-                  }}
-                >
-                  Stock Actual
-                </th>
+            <p style={{ fontSize: '13px' }}>
 
-                <th
-                  style={{
-                    padding: '12px'
-                  }}
-                >
-                  Mínimo
-                </th>
+              Los insumos pueden seguir consultándose aunque falle esta petición.
 
-                <th
-                  style={{
-                    padding: '12px'
-                  }}
-                >
-                  Última Salida
-                </th>
+              Revisa el endpoint GET /api/v1/equipos y los permisos de acceso.
 
-                <th
-                  style={{
-                    padding: '12px'
-                  }}
-                >
-                  Estado
-                </th>
+            </p>
 
-                <th
-                  style={{
-                    padding: '12px',
-                    textAlign:
-                      'center'
-                  }}
-                >
-                  Acción
-                </th>
-              </tr>
-            </thead>
+            <button
 
-            <tbody>
-              {/* CARGANDO */}
-              {cargando ? (
-                <tr>
-                  <td
-                    colSpan="7"
-                    style={{
-                      textAlign:
-                        'center',
-                      padding: '20px'
-                    }}
-                  >
-                    Cargando inventario...
-                  </td>
+              type="button"
+
+              onClick={cargarEquipos}
+
+              style={boton('#0369a1')}
+
+            >
+
+              Reintentar
+
+            </button>
+
+          </div>
+
+        ) : (
+
+          <div
+
+            style={{
+
+              overflowX: 'auto',
+
+              border: '1px solid #334155',
+
+              borderRadius: '10px'
+
+            }}
+
+          >
+
+            <table
+
+              style={{
+
+                width: '100%',
+
+                minWidth: '1050px',
+
+                borderCollapse: 'collapse',
+
+                backgroundColor: '#0f172a'
+
+              }}
+
+            >
+
+              <thead>
+
+                <tr style={{ backgroundColor: '#1e293b' }}>
+
+                  {[
+
+                    'Código',
+
+                    'Tipo de equipo',
+
+                    'Marca',
+
+                    'Modelo',
+
+                    'Número de serie',
+
+                    'Ubicación',
+
+                    'Estado',
+
+                    'Fecha de registro'
+
+                  ].map((titulo) => (
+
+                    <th key={titulo} style={celda}>
+
+                      {titulo}
+
+                    </th>
+
+                  ))}
+
                 </tr>
-              ) : inventarioFiltrado.length ===
-                0 ? (
-                /* SIN RESULTADOS */
-                <tr>
-                  <td
-                    colSpan="7"
-                    style={{
-                      textAlign:
-                        'center',
-                      padding: '20px',
-                      color:
-                        '#94a3b8'
-                    }}
-                  >
-                    No se encontraron
-                    consumibles.
-                  </td>
+
+              </thead>
+
+              <tbody>
+
+                {equiposFiltrados.length === 0 ? (
+
+                  <tr>
+
+                    <td
+
+                      colSpan={8}
+
+                      style={{
+
+                        ...celda,
+
+                        textAlign: 'center',
+
+                        padding: '25px',
+
+                        color: '#94a3b8'
+
+                      }}
+
+                    >
+
+                      No hay equipos para mostrar. Si ya registraste equipos,
+
+                      verifica que el endpoint GET /equipos los esté devolviendo.
+
+                    </td>
+
+                  </tr>
+
+                ) : (
+
+                  equiposFiltrados.map((equipo, indice) => (
+
+                    <tr key={equipo.id ?? equipo.codigoInterno ?? indice}>
+
+                      <td style={celda}>
+
+                        {equipo.codigoInterno ??
+
+                          equipo.codigo_interno ??
+
+                          equipo.nombre ??
+
+                          '—'}
+
+                      </td>
+
+                      <td style={celda}>
+
+                        {equipo.tipo ?? '—'}
+
+                      </td>
+
+                      <td style={celda}>
+
+                        {equipo.marca ?? '—'}
+
+                      </td>
+
+                      <td style={celda}>
+
+                        {equipo.modelo ?? '—'}
+
+                      </td>
+
+                      <td style={celda}>
+
+                        {equipo.serie ?? '—'}
+
+                      </td>
+
+                      <td style={celda}>
+
+                        {obtenerUbicacion(equipo)}
+
+                      </td>
+
+                      <td style={celda}>
+
+                        {equipo.estadoActual ??
+
+                          equipo.estado_actual ??
+
+                          'Sin estado'}
+
+                      </td>
+
+                      <td style={celda}>
+
+                        {formatoFecha(
+
+                          equipo.fechaAlta ?? equipo.fecha_alta
+
+                        )}
+
+                      </td>
+
+                    </tr>
+
+                  ))
+
+                )}
+
+              </tbody>
+
+            </table>
+
+          </div>
+
+        )}
+
+      </section>
+
+      {/* TABLA DE INSUMOS */}
+
+      <section>
+
+        <h3 style={{ color: '#4ade80' }}>
+
+          Insumos registrados
+
+        </h3>
+
+        <p style={{ color: '#94a3b8' }}>
+
+          Consulta y edita las existencias de tus insumos.
+
+        </p>
+
+        <div
+
+          style={{
+
+            display: 'flex',
+
+            flexWrap: 'wrap',
+
+            gap: '10px',
+
+            marginBottom: '15px'
+
+          }}
+
+        >
+
+          <input
+
+            type="text"
+
+            value={busquedaInsumos}
+
+            onChange={(e) => setBusquedaInsumos(e.target.value)}
+
+            placeholder="Buscar por código, marca o modelo..."
+
+            style={{ ...campo, flex: '1 1 250px' }}
+
+          />
+
+          <select
+
+            value={filtroTipo}
+
+            onChange={(e) => setFiltroTipo(e.target.value)}
+
+            style={{ ...campo, flex: '0 1 200px' }}
+
+          >
+
+            <option value="Todos">Todos los tipos</option>
+
+            <option value="Tinta">Tinta</option>
+
+            <option value="TINTA">TINTA</option>
+
+            <option value="Toner">Tóner</option>
+
+            <option value="TONER">TONER</option>
+
+            <option value="Tambor">Tambor</option>
+
+            <option value="TAMBOR">TAMBOR</option>
+
+            <option value="Cinta">Cinta</option>
+
+            <option value="CINTA">CINTA</option>
+
+            <option value="ROLLO_TERMICO">Rollo térmico</option>
+
+          </select>
+
+        </div>
+
+        {cargandoInsumos ? (
+
+          <p>Cargando insumos...</p>
+
+        ) : errorInsumos ? (
+
+          <div style={{ ...tarjeta, color: '#fca5a5' }}>
+
+            {errorInsumos}
+
+            <button
+
+              type="button"
+
+              onClick={cargarInsumos}
+
+              style={{ ...boton('#0369a1'), marginLeft: '10px' }}
+
+            >
+
+              Reintentar
+
+            </button>
+
+          </div>
+
+        ) : (
+
+          <div
+
+            style={{
+
+              overflowX: 'auto',
+
+              border: '1px solid #334155',
+
+              borderRadius: '10px'
+
+            }}
+
+          >
+
+            <table
+
+              style={{
+
+                width: '100%',
+
+                minWidth: '950px',
+
+                borderCollapse: 'collapse',
+
+                backgroundColor: '#0f172a'
+
+              }}
+
+            >
+
+              <thead>
+
+                <tr style={{ backgroundColor: '#1e293b' }}>
+
+                  {[
+
+                    'Código',
+
+                    'Tipo',
+
+                    'Marca',
+
+                    'Modelo',
+
+                    'Stock actual',
+
+                    'Stock mínimo',
+
+                    'Último despacho',
+
+                    'Estado',
+
+                    'Acciones'
+
+                  ].map((titulo) => (
+
+                    <th key={titulo} style={celda}>
+
+                      {titulo}
+
+                    </th>
+
+                  ))}
+
                 </tr>
-              ) : (
-                /* LISTADO */
-                inventarioFiltrado.map(
-                  (item) => {
-                    const esModoEdicion =
-                      edicion?.id ===
-                      item.id;
 
-                    const stockActual =
-                      Number(
-                        item.stockActual ??
-                          0
-                      );
+              </thead>
 
-                    const stockMinimo =
-                      Number(
-                        item.stockMinimo ??
-                          0
-                      );
+              <tbody>
 
-                    const esStockBajo =
-                      stockActual <=
-                      stockMinimo;
+                {insumosFiltrados.length === 0 ? (
+
+                  <tr>
+
+                    <td
+
+                      colSpan={9}
+
+                      style={{
+
+                        ...celda,
+
+                        textAlign: 'center',
+
+                        padding: '25px',
+
+                        color: '#94a3b8'
+
+                      }}
+
+                    >
+
+                      No se encontraron insumos.
+
+                    </td>
+
+                  </tr>
+
+                ) : (
+
+                  insumosFiltrados.map((item, indice) => {
+
+                    const stockActual = Number(item.stockActual ?? 0);
+
+                    const stockMinimo = Number(item.stockMinimo ?? 0);
+
+                    const critico = stockActual <= stockMinimo;
+
+                    const editando = edicion?.id === item.id;
 
                     return (
-                      <tr
-                        key={item.id}
-                        style={{
-                          borderBottom:
-                            '1px solid #334155'
-                        }}
-                      >
-                        {/* CÓDIGO */}
-                        <td
-                          style={{
-                            padding:
-                              '12px',
-                            fontWeight:
-                              'bold',
-                            color:
-                              '#38bdf8'
-                          }}
-                        >
-                          {item.codigo ||
-                            'Sin código'}
+
+                      <tr key={item.id ?? indice}>
+
+                        <td style={celda}>
+
+                          {item.codigo ?? '—'}
+
                         </td>
 
-                        {/* TIPO / DETALLES */}
-                        <td
-                          style={{
-                            padding:
-                              '12px'
-                          }}
-                        >
-                          {esModoEdicion ? (
-                            <>
-                              <input
-                                type="text"
-                                value={
-                                  edicion.marca ??
-                                  ''
-                                }
-                                onChange={(
-                                  e
-                                ) =>
-                                  setEdicion(
-                                    {
-                                      ...edicion,
-                                      marca:
-                                        e
-                                          .target
-                                          .value
-                                    }
-                                  )
-                                }
-                                placeholder="Marca"
-                                style={{
-                                  width:
-                                    '80px',
-                                  background:
-                                    '#0f172a',
-                                  color:
-                                    '#fff',
-                                  border:
-                                    '1px solid #475569',
-                                  padding:
-                                    '4px',
-                                  marginRight:
-                                    '4px'
-                                }}
-                              />
+                        <td style={celda}>
 
-                              <input
-                                type="text"
-                                value={
-                                  edicion.modelo ??
-                                  ''
-                                }
-                                onChange={(
-                                  e
-                                ) =>
-                                  setEdicion(
-                                    {
-                                      ...edicion,
-                                      modelo:
-                                        e
-                                          .target
-                                          .value
-                                    }
-                                  )
-                                }
-                                placeholder="Modelo"
-                                style={{
-                                  width:
-                                    '80px',
-                                  background:
-                                    '#0f172a',
-                                  color:
-                                    '#fff',
-                                  border:
-                                    '1px solid #475569',
-                                  padding:
-                                    '4px'
-                                }}
-                              />
-                            </>
-                          ) : (
-                            <div>
-                              <strong>
-                                {item.tipo ||
-                                  'Sin tipo'}
-                              </strong>{' '}
-                              -{' '}
-                              {item.marca ||
-                                ''}{' '}
-                              {item.modelo ||
-                                ''}
+                          {item.tipo ?? '—'}
 
-                              {item.color && (
-                                <small
-                                  style={{
-                                    display:
-                                      'block',
-                                    color:
-                                      '#94a3b8'
-                                  }}
-                                >
-                                  Color:{' '}
-                                  {
-                                    item.color
-                                  }
-                                </small>
-                              )}
-                            </div>
-                          )}
                         </td>
 
-                        {/* STOCK ACTUAL */}
-                        <td
-                          style={{
-                            padding:
-                              '12px'
-                          }}
-                        >
-                          {esModoEdicion ? (
+                        <td style={celda}>
+
+                          {editando ? (
+
                             <input
-                              type="number"
-                              min="0"
-                              value={
-                                edicion.stockActual ??
-                                ''
+
+                              value={edicion.marca}
+
+                              onChange={(e) =>
+
+                                setEdicion({
+
+                                  ...edicion,
+
+                                  marca: e.target.value
+
+                                })
+
                               }
-                              onChange={(
-                                e
-                              ) =>
-                                setEdicion(
-                                  {
-                                    ...edicion,
-                                    stockActual:
-                                      e
-                                        .target
-                                        .value
-                                  }
-                                )
-                              }
-                              style={{
-                                width:
-                                  '60px',
-                                background:
-                                  '#0f172a',
-                                color:
-                                  '#fff',
-                                border:
-                                  '1px solid #475569',
-                                padding:
-                                  '4px'
-                              }}
+
+                              style={{ ...campo, minWidth: '100px' }}
+
                             />
+
                           ) : (
-                            <span
-                              style={{
-                                fontWeight:
-                                  'bold',
-                                fontSize:
-                                  '15px',
-                                color:
-                                  esStockBajo
-                                    ? '#f87171'
-                                    : '#4ade80'
-                              }}
-                            >
-                              {
-                                stockActual
-                              }
-                            </span>
+
+                            item.marca || '—'
+
                           )}
+
                         </td>
 
-                        {/* STOCK MÍNIMO */}
-                        <td
-                          style={{
-                            padding:
-                              '12px'
-                          }}
-                        >
-                          {esModoEdicion ? (
+                        <td style={celda}>
+
+                          {editando ? (
+
                             <input
-                              type="number"
-                              min="0"
-                              value={
-                                edicion.stockMinimo ??
-                                ''
+
+                              value={edicion.modelo}
+
+                              onChange={(e) =>
+
+                                setEdicion({
+
+                                  ...edicion,
+
+                                  modelo: e.target.value
+
+                                })
+
                               }
-                              onChange={(
-                                e
-                              ) =>
-                                setEdicion(
-                                  {
-                                    ...edicion,
-                                    stockMinimo:
-                                      e
-                                        .target
-                                        .value
-                                  }
-                                )
-                              }
-                              style={{
-                                width:
-                                  '60px',
-                                background:
-                                  '#0f172a',
-                                color:
-                                  '#fff',
-                                border:
-                                  '1px solid #475569',
-                                padding:
-                                  '4px'
-                              }}
+
+                              style={{ ...campo, minWidth: '100px' }}
+
                             />
+
                           ) : (
-                            <span>
-                              {
-                                stockMinimo
+
+                            item.modelo || '—'
+
+                          )}
+
+                        </td>
+
+                        <td style={celda}>
+
+                          {editando ? (
+
+                            <input
+
+                              type="number"
+
+                              min="0"
+
+                              value={edicion.stockActual}
+
+                              onChange={(e) =>
+
+                                setEdicion({
+
+                                  ...edicion,
+
+                                  stockActual: e.target.value
+
+                                })
+
                               }
-                            </span>
-                          )}
-                        </td>
 
-                        {/* ÚLTIMA SALIDA */}
-                        <td
-                          style={{
-                            padding:
-                              '12px',
-                            color:
-                              '#94a3b8'
-                          }}
-                        >
-                          {item.ultimaSalida ||
-                            'Sin registros'}
+                              style={{ ...campo, minWidth: '85px' }}
 
-                          {item.diasSinDespacho !==
-                            null &&
-                            item.diasSinDespacho !==
-                              undefined && (
-                              <small
-                                style={{
-                                  display:
-                                    'block',
-                                  color:
-                                    Number(
-                                      item.diasSinDespacho
-                                    ) >=
-                                    15
-                                      ? '#fbbf24'
-                                      : '#64748b'
-                                }}
-                              >
-                                (hace{' '}
-                                {
-                                  item.diasSinDespacho
-                                }{' '}
-                                días)
-                              </small>
-                            )}
-                        </td>
+                            />
 
-                        {/* ESTADO */}
-                        <td
-                          style={{
-                            padding:
-                              '12px'
-                          }}
-                        >
-                          {esStockBajo ? (
-                            <span
-                              style={{
-                                background:
-                                  '#991b1b',
-                                color:
-                                  '#fecaca',
-                                padding:
-                                  '4px 8px',
-                                borderRadius:
-                                  '4px',
-                                fontSize:
-                                  '12px'
-                              }}
-                            >
-                              ⚠️ Stock
-                              Bajo
-                            </span>
                           ) : (
-                            <span
-                              style={{
-                                background:
-                                  '#065f46',
-                                color:
-                                  '#a7f3d0',
-                                padding:
-                                  '4px 8px',
-                                borderRadius:
-                                  '4px',
-                                fontSize:
-                                  '12px'
-                              }}
-                            >
-                              ✓ Ok
-                            </span>
+
+                            stockActual
+
                           )}
+
                         </td>
 
-                        {/* ACCIÓN */}
-                        <td
-                          style={{
-                            padding:
-                              '12px',
-                            textAlign:
-                              'center'
-                          }}
-                        >
-                          {esModoEdicion ? (
-                            <div
-                              style={{
-                                display:
-                                  'flex',
-                                gap: '5px',
-                                justifyContent:
-                                  'center'
-                              }}
-                            >
+                        <td style={celda}>
+
+                          {editando ? (
+
+                            <input
+
+                              type="number"
+
+                              min="0"
+
+                              value={edicion.stockMinimo}
+
+                              onChange={(e) =>
+
+                                setEdicion({
+
+                                  ...edicion,
+
+                                  stockMinimo: e.target.value
+
+                                })
+
+                              }
+
+                              style={{ ...campo, minWidth: '85px' }}
+
+                            />
+
+                          ) : (
+
+                            stockMinimo
+
+                          )}
+
+                        </td>
+
+                        <td style={celda}>
+
+                          {item.diasSinDespacho == null
+
+                            ? 'Sin registro'
+
+                            : `Hace ${item.diasSinDespacho} días`}
+
+                        </td>
+
+                        <td style={celda}>
+
+                          <span
+
+                            style={{
+
+                              color: critico ? '#f87171' : '#4ade80',
+
+                              fontWeight: 'bold'
+
+                            }}
+
+                          >
+
+                            {critico ? 'Stock crítico' : 'Disponible'}
+
+                          </span>
+
+                        </td>
+
+                        <td style={celda}>
+
+                          {editando ? (
+
+                            <div style={{ display: 'flex', gap: '6px' }}>
+
                               <button
+
                                 type="button"
-                                onClick={() =>
-                                  guardarEdicion(
-                                    item.id
-                                  )
-                                }
-                                style={{
-                                  background:
-                                    '#16a34a',
-                                  color:
-                                    '#fff',
-                                  border:
-                                    'none',
-                                  padding:
-                                    '5px 10px',
-                                  borderRadius:
-                                    '4px',
-                                  cursor:
-                                    'pointer'
-                                }}
+
+                                onClick={() => guardarEdicion(item.id)}
+
+                                style={boton('#15803d')}
+
                               >
-                                💾
+
+                                Guardar
+
                               </button>
 
                               <button
+
                                 type="button"
-                                onClick={() =>
-                                  setEdicion(
-                                    null
-                                  )
-                                }
-                                style={{
-                                  background:
-                                    '#475569',
-                                  color:
-                                    '#fff',
-                                  border:
-                                    'none',
-                                  padding:
-                                    '5px 10px',
-                                  borderRadius:
-                                    '4px',
-                                  cursor:
-                                    'pointer'
-                                }}
+
+                                onClick={() => setEdicion(null)}
+
+                                style={boton('#475569')}
+
                               >
-                                ❌
+
+                                Cancelar
+
                               </button>
+
                             </div>
+
                           ) : (
+
                             <button
+
                               type="button"
+
                               onClick={() =>
-                                setEdicion(
-                                  {
-                                    ...item
-                                  }
-                                )
+
+                                setEdicion({
+
+                                  id: item.id,
+
+                                  stockActual: String(item.stockActual ?? 0),
+
+                                  stockMinimo: String(item.stockMinimo ?? 0),
+
+                                  marca: item.marca ?? '',
+
+                                  modelo: item.modelo ?? ''
+
+                                })
+
                               }
-                              style={{
-                                background:
-                                  '#334155',
-                                color:
-                                  '#38bdf8',
-                                border:
-                                  '1px solid #38bdf8',
-                                padding:
-                                  '5px 10px',
-                                borderRadius:
-                                  '4px',
-                                cursor:
-                                  'pointer'
-                              }}
+
+                              style={boton('#0369a1')}
+
                             >
-                              ✏️ Editar
+
+                              Editar
+
                             </button>
+
                           )}
+
                         </td>
+
                       </tr>
+
                     );
-                  }
-                )
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+
+                  })
+
+                )}
+
+              </tbody>
+
+            </table>
+
+          </div>
+
+        )}
+
+      </section>
+
     </div>
+
   );
+
 }

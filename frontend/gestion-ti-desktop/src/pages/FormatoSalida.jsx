@@ -3,13 +3,13 @@ import httpClient from '../api/httpClient';
 
 export default function FormatoSalida() {
   const [form, setForm] = useState({
-    reparacionId: '',
+    reparacionId: 0,
     folio: '',
     diagnosticoTecnico: '',
     trabajoRealizado: '',
     pruebasConformidadOk: true,
     observacionesGarantia: '',
-    estadoFinalEquipo: 'OPERATIVO', // OPERATIVO o BAJA
+    estadoFinalEquipo: 'OPERATIVO',
   });
 
   const [mensaje, setMensaje] = useState(null);
@@ -28,10 +28,15 @@ export default function FormatoSalida() {
     setCargando(true);
 
     try {
-      await httpClient.post('/formatos/salida', form);
+      const payload = {
+        ...form,
+        reparacionId: form.reparacionId ? parseInt(form.reparacionId, 10) : 0,
+      };
+
+      await httpClient.post('/formatos/salida', payload);
       setMensaje('¡Formato de Salida registrado con éxito! El equipo ha sido actualizado.');
       setForm({
-        reparacionId: '',
+        reparacionId: 0,
         folio: '',
         diagnosticoTecnico: '',
         trabajoRealizado: '',

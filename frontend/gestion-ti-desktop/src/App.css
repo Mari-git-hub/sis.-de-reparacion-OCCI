@@ -17,6 +17,19 @@
   }
 }
 
+
+.contenido-principal {
+  padding: 20px;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+@media (max-width: 650px) {
+  .contenido-principal {
+    padding: 10px;
+  }
+}
+
 .hero {
   position: relative;
 

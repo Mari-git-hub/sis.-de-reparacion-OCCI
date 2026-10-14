@@ -1,11 +1,3 @@
-C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\obj\Debug\net9.0\GestionIT.Api.csproj.AssemblyReference.cache
-C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\obj\Debug\net9.0\rpswa.dswa.cache.json
-C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\obj\Debug\net9.0\GestionIT.Api.GeneratedMSBuildEditorConfig.editorconfig
-C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\obj\Debug\net9.0\GestionIT.Api.AssemblyInfoInputs.cache
-C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\obj\Debug\net9.0\GestionIT.Api.AssemblyInfo.cs
-C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\obj\Debug\net9.0\GestionIT.Api.csproj.CoreCompileInputs.cache
-C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\obj\Debug\net9.0\GestionIT.Api.MvcApplicationPartsAssemblyInfo.cs
-C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\obj\Debug\net9.0\GestionIT.Api.MvcApplicationPartsAssemblyInfo.cache
 C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\bin\Debug\net9.0\appsettings.Development.json
 C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\bin\Debug\net9.0\appsettings.json
 C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\bin\Debug\net9.0\GestionIT.Api.staticwebassets.endpoints.json
@@ -75,6 +67,14 @@ C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Ap
 C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\bin\Debug\net9.0\GestionIT.Application.pdb
 C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\bin\Debug\net9.0\GestionIT.Infrastructure.pdb
 C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\bin\Debug\net9.0\GestionIT.Domain.pdb
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\obj\Debug\net9.0\GestionIT.Api.csproj.AssemblyReference.cache
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\obj\Debug\net9.0\rpswa.dswa.cache.json
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\obj\Debug\net9.0\GestionIT.Api.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\obj\Debug\net9.0\GestionIT.Api.AssemblyInfoInputs.cache
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\obj\Debug\net9.0\GestionIT.Api.AssemblyInfo.cs
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\obj\Debug\net9.0\GestionIT.Api.csproj.CoreCompileInputs.cache
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\obj\Debug\net9.0\GestionIT.Api.MvcApplicationPartsAssemblyInfo.cs
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\obj\Debug\net9.0\GestionIT.Api.MvcApplicationPartsAssemblyInfo.cache
 C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\obj\Debug\net9.0\rjimswa.dswa.cache.json
 C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\obj\Debug\net9.0\rjsmrazor.dswa.cache.json
 C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\obj\Debug\net9.0\rjsmcshtml.dswa.cache.json
@@ -89,4 +89,3 @@ C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Ap
 C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\obj\Debug\net9.0\GestionIT.Api.pdb
 C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\obj\Debug\net9.0\GestionIT.Api.genruntimeconfig.cache
 C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\obj\Debug\net9.0\ref\GestionIT.Api.dll
-C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\obj\Debug\net9.0\GestionIT.Api.sourcelink.json

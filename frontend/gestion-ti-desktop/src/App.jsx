@@ -21,6 +21,10 @@ import Reparaciones from './pages/Reparaciones';
 import Tableros from './pages/Tableros';
 import Usuarios from './pages/Usuario';
 
+// NUEVOS FORMULARIOS DE REGISTRO
+import RegistrarInsumo from './pages/RegistrarInsumo';
+import RegistrarEquipo from './pages/RegistrarEquipo';
+
 import './App.css';
 
 
@@ -29,10 +33,9 @@ import './App.css';
 // ============================================================
 function RutaProtegida({ children, roles = null }) {
   const auth = useAuth();
-
   const usuario = auth?.usuario;
 
-  // Si no hay usuario autenticado
+  // Comprobar si el usuario inició sesión
   if (!usuario) {
     return (
       <Navigate
@@ -42,8 +45,7 @@ function RutaProtegida({ children, roles = null }) {
     );
   }
 
-  // Si la ruta tiene roles permitidos,
-  // comprobar que el usuario tenga uno de ellos.
+  // Comprobar los permisos por rol
   if (
     roles &&
     roles.length > 0 &&
@@ -62,35 +64,29 @@ function RutaProtegida({ children, roles = null }) {
 
 
 // ============================================================
-// APP PRINCIPAL
+// APLICACIÓN PRINCIPAL
 // ============================================================
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
 
-        {/* BARRA DE NAVEGACIÓN */}
         <Navbar />
 
-        <main
-          style={{
-            padding: '20px'
-          }}
-        >
+        <main className="contenido-principal">
           <Routes>
 
-            {/* ==================================================
-                RUTA PÚBLICA
-            ================================================== */}
+            {/* ================================================
+                INICIO DE SESIÓN
+            ================================================ */}
             <Route
               path="/login"
               element={<Login />}
             />
 
-
-            {/* ==================================================
-                INVENTARIO
-            ================================================== */}
+            {/* ================================================
+                INVENTARIO GENERAL
+            ================================================ */}
             <Route
               path="/inventario"
               element={
@@ -100,10 +96,33 @@ export default function App() {
               }
             />
 
+            {/* ================================================
+                NUEVO: REGISTRAR INSUMO
+            ================================================ */}
+            <Route
+              path="/inventario/registrar-insumo"
+              element={
+                <RutaProtegida>
+                  <RegistrarInsumo />
+                </RutaProtegida>
+              }
+            />
 
-            {/* ==================================================
+            {/* ================================================
+                NUEVO: REGISTRAR EQUIPO
+            ================================================ */}
+            <Route
+              path="/inventario/registrar-equipo"
+              element={
+                <RutaProtegida>
+                  <RegistrarEquipo />
+                </RutaProtegida>
+              }
+            />
+
+            {/* ================================================
                 REPARACIONES
-            ================================================== */}
+            ================================================ */}
             <Route
               path="/reparaciones"
               element={
@@ -113,10 +132,9 @@ export default function App() {
               }
             />
 
-
-            {/* ==================================================
-                FORMATO DE INGRESO
-            ================================================== */}
+            {/* ================================================
+                FORMATO DE INGRESO EXISTENTE
+            ================================================ */}
             <Route
               path="/ingreso"
               element={
@@ -126,10 +144,9 @@ export default function App() {
               }
             />
 
-
-            {/* ==================================================
-                FORMATO DE SALIDA
-            ================================================== */}
+            {/* ================================================
+                FORMATO DE SALIDA EXISTENTE
+            ================================================ */}
             <Route
               path="/salida"
               element={
@@ -139,10 +156,9 @@ export default function App() {
               }
             />
 
-
-            {/* ==================================================
-                ALERTAS
-            ================================================== */}
+            {/* ================================================
+                ALERTAS DE INSUMOS
+            ================================================ */}
             <Route
               path="/alertas"
               element={
@@ -152,10 +168,9 @@ export default function App() {
               }
             />
 
-
-            {/* ==================================================
+            {/* ================================================
                 REPORTES
-            ================================================== */}
+            ================================================ */}
             <Route
               path="/reportes"
               element={
@@ -165,26 +180,22 @@ export default function App() {
               }
             />
 
-
-            {/* ==================================================
-                USUARIOS
+            {/* ================================================
+                ADMINISTRACIÓN DE USUARIOS
                 SOLO ADMIN IT
-            ================================================== */}
+            ================================================ */}
             <Route
               path="/usuarios"
               element={
-                <RutaProtegida
-                  roles={['Admin IT']}
-                >
+                <RutaProtegida roles={['Admin IT']}>
                   <Usuarios />
                 </RutaProtegida>
               }
             />
 
-
-            {/* ==================================================
-                RUTA PRINCIPAL
-            ================================================== */}
+            {/* ================================================
+                RUTA INICIAL
+            ================================================ */}
             <Route
               path="/"
               element={
@@ -195,10 +206,9 @@ export default function App() {
               }
             />
 
-
-            {/* ==================================================
-                RUTAS NO EXISTENTES
-            ================================================== */}
+            {/* ================================================
+                RUTAS NO ENCONTRADAS
+            ================================================ */}
             <Route
               path="*"
               element={
