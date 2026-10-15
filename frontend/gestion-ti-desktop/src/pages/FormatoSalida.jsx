@@ -1,105 +1,158 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import httpClient from '../api/httpClient';
+import './FormatoSalida.css';
 
 export default function FormatoSalida() {
-  const [form, setForm] = useState({
-    reparacionId: 0,
-    folio: '',
-    diagnosticoTecnico: '',
-    trabajoRealizado: '',
-    pruebasConformidadOk: true,
-    observacionesGarantia: '',
-    estadoFinalEquipo: 'OPERATIVO',
-  });
+  const [equiposPendientes, setEquiposPendientes] = useState([]);
+  const [reparacionId, setReparacionId] = useState('');
+  const [diagnostico, setDiagnostico] = useState('');
+  const [trabajoRealizado, setTrabajoRealizado] = useState('');
+  const [observaciones, setObservaciones] = useState('');
+  const [pruebasConformidadOk, setPruebasConformidadOk] = useState(false);
+  const [estadoFinal, setEstadoFinal] = useState('OPERATIVO');
 
-  const [mensaje, setMensaje] = useState(null);
-  const [error, setError] = useState(null);
-  const [cargando, setCargando] = useState(false);
+  const [guardando, setGuardando] = useState(false);
+  const [mensaje, setMensaje] = useState('');
+  const [error, setError] = useState('');
 
-  const handleChange = (e) => {
-    const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
-    setForm({ ...form, [e.target.name]: value });
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/immutability
+    cargarEquiposPendientes();
+  }, []);
+
+  const cargarEquiposPendientes = async () => {
+    try {
+      const res = await httpClient.get('/formatos/equipos-pendientes');
+      setEquiposPendientes(res.data);
+    } catch (err) {
+      console.error('Error al cargar equipos pendientes:', err);
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setMensaje(null);
-    setError(null);
-    setCargando(true);
+    setMensaje('');
+    setError('');
+
+    if (!reparacionId) {
+      setError('Debes seleccionar un equipo de la lista.');
+      return;
+    }
+
+    if (!trabajoRealizado.trim()) {
+      setError('El campo Trabajo Realizado es obligatorio.');
+      return;
+    }
 
     try {
-      const payload = {
-        ...form,
-        reparacionId: form.reparacionId ? parseInt(form.reparacionId, 10) : 0,
-      };
+      setGuardando(true);
+      
+const res = await httpClient.post('/formatos/salida', {
+  reparacionId: Number(reparacionId),
+  diagnosticoTecnico: diagnostico.trim(),
+  trabajoRealizado: trabajoRealizado.trim(),
+  pruebasConformidadOk: pruebasConformidadOk,
+  observacionesGarantia: observaciones.trim(),
+  estadoFinalEquipo: estadoFinal
+});
 
-      await httpClient.post('/formatos/salida', payload);
-      setMensaje('¡Formato de Salida registrado con éxito! El equipo ha sido actualizado.');
-      setForm({
-        reparacionId: 0,
-        folio: '',
-        diagnosticoTecnico: '',
-        trabajoRealizado: '',
-        pruebasConformidadOk: true,
-        observacionesGarantia: '',
-        estadoFinalEquipo: 'OPERATIVO',
-      });
+
+
+      setMensaje(res.data?.mensaje || 'Formato de salida registrado correctamente.');
+      setReparacionId('');
+      setDiagnostico('');
+      setTrabajoRealizado('');
+      setObservaciones('');
+      cargarEquiposPendientes();
     } catch (err) {
-      setError(err.response?.data?.mensaje || 'Error al guardar el formato de salida.');
+      setError(
+        err.response?.data?.mensaje ||
+        err.response?.data?.message ||
+        'Error al guardar el formato de salida.'
+      );
     } finally {
-      setCargando(false);
+      setGuardando(false);
     }
   };
 
   return (
-    <div style={{ maxWidth: '700px', margin: '30px auto', padding: '25px', background: '#ffffff', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-      <h2 style={{ borderBottom: '2px solid #2563eb', paddingBottom: '10px', color: '#1e293b' }}>
-        Pantalla 2: Formato de Salida / Entrega de Equipo
-      </h2>
+    <div className="tarjeta-formulario">
+      <h2>Formato de Salida / Entrega de Equipo</h2>
 
-      {mensaje && <div style={{ background: '#dcfce7', color: '#15803d', padding: '12px', borderRadius: '6px', marginBottom: '15px' }}>{mensaje}</div>}
-      {error && <div style={{ background: '#fef2f2', color: '#b91c1c', padding: '12px', borderRadius: '6px', marginBottom: '15px' }}>{error}</div>}
+      {mensaje && <div className="mensaje-exito">{mensaje}</div>}
+      {error && <div className="mensaje-error">{error}</div>}
 
       <form onSubmit={handleSubmit}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
-          <div>
-            <label style={{ display: 'block', fontWeight: 'bold', fontSize: '14px', marginBottom: '5px' }}>Folio de Reparación / Orden:</label>
-            <input name="folio" value={form.folio} onChange={handleChange} required placeholder="Ej. REP-2026-001" style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1' }} />
-          </div>
-
-          <div>
-            <label style={{ display: 'block', fontWeight: 'bold', fontSize: '14px', marginBottom: '5px' }}>Estado Final del Activo:</label>
-            <select name="estadoFinalEquipo" value={form.estadoFinalEquipo} onChange={handleChange} required style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1' }}>
-              <option value="OPERATIVO">OPERATIVO (Reparado / Entregado)</option>
-              <option value="BAJA">BAJA TÉCNICA (Descartado / Irreparable)</option>
-            </select>
-          </div>
+        <div className="campo-formulario">
+          <label>Seleccionar Equipo en Reparación *</label>
+          <select
+            value={reparacionId}
+            onChange={(e) => setReparacionId(e.target.value)}
+            required
+          >
+            <option value="">-- Selecciona el Equipo --</option>
+            {equiposPendientes.map((item) => (
+              <option key={item.reparacionId} value={item.reparacionId}>
+                {item.etiqueta} | Falla: {item.falla}
+              </option>
+            ))}
+          </select>
         </div>
 
-        <div style={{ marginBottom: '15px' }}>
-          <label style={{ display: 'block', fontWeight: 'bold', fontSize: '14px', marginBottom: '5px' }}>Diagnóstico Técnico Aplicado:</label>
-          <textarea name="diagnosticoTecnico" value={form.diagnosticoTecnico} onChange={handleChange} required rows={3} placeholder="Describa el diagnóstico realizado..." style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1' }} />
+        <div className="campo-formulario">
+          <label>Estado Final del Activo *</label>
+          <select
+            value={estadoFinal}
+            onChange={(e) => setEstadoFinal(e.target.value)}
+          >
+            <option value="OPERATIVO">OPERATIVO (Reparado / Listo)</option>
+            <option value="BAJA">BAJA TÉCNICA (Inoperativo / Descartado)</option>
+          </select>
         </div>
 
-        <div style={{ marginBottom: '15px' }}>
-          <label style={{ display: 'block', fontWeight: 'bold', fontSize: '14px', marginBottom: '5px' }}>Trabajo Realizado / Repuestos Consumidos:</label>
-          <textarea name="trabajoRealizado" value={form.trabajoRealizado} onChange={handleChange} required rows={3} placeholder="Mantenimiento preventivo, cambio de disco SSD, sustitución de rodillo térmico, etc." style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1' }} />
+        <div className="campo-formulario">
+          <label>Diagnóstico Técnico Aplicado</label>
+          <textarea
+            rows={3}
+            value={diagnostico}
+            onChange={(e) => setDiagnostico(e.target.value)}
+            placeholder="Escribe el diagnóstico final realizado..."
+          />
         </div>
 
-        <div style={{ marginBottom: '15px' }}>
-          <label style={{ display: 'block', fontWeight: 'bold', fontSize: '14px', marginBottom: '5px' }}>Observaciones de Garantía:</label>
-          <input name="observacionesGarantia" value={form.observacionesGarantia} onChange={handleChange} placeholder="Ej. Garantía interna de 15 días sobre el trabajo realizado" style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1' }} />
+        <div className="campo-formulario">
+          <label>Trabajo Realizado / Repuestos *</label>
+          <textarea
+            rows={3}
+            value={trabajoRealizado}
+            onChange={(e) => setTrabajoRealizado(e.target.value)}
+            placeholder="Describe las acciones tomadas..."
+            required
+          />
         </div>
 
-        <div style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <input type="checkbox" id="pruebasConformidadOk" name="pruebasConformidadOk" checked={form.pruebasConformidadOk} onChange={handleChange} />
-          <label htmlFor="pruebasConformidadOk" style={{ fontWeight: 'bold', fontSize: '14px', cursor: 'pointer' }}>
-            Pruebas de funcionamiento y calidad superadas correctamente.
-          </label>
+        <div className="campo-formulario">
+          <label>Observaciones de Garantía</label>
+          <textarea
+            rows={2}
+            value={observaciones}
+            onChange={(e) => setObservaciones(e.target.value)}
+            placeholder="Condiciones o notas adicionales..."
+          />
         </div>
+        <div className="campo-formulario">
+  <label>
+    <input
+      type="checkbox"
+      checked={pruebasConformidadOk}
+      onChange={(e) => setPruebasConformidadOk(e.target.checked)}
+    />
+    {' '}Pruebas de conformidad satisfactorias
+  </label>
+</div>
 
-        <button type="submit" disabled={cargando} style={{ background: '#2563eb', color: '#ffffff', border: 'none', padding: '12px 20px', borderRadius: '6px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', width: '100%' }}>
-          {cargando ? 'Procesando Salida...' : 'Registrar Salida y Entregar Equipo'}
+        <button type="submit" className="boton-principal" disabled={guardando}>
+          {guardando ? 'Procesando...' : 'Guardar Formato de Salida'}
         </button>
       </form>
     </div>

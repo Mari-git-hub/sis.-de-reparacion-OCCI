@@ -24,7 +24,6 @@ export default function RegistrarEquipo() {
   const [mensaje, setMensaje] = useState('');
   const [error, setError] = useState('');
 
-  // Cargar departamentos automáticamente si se selecciona una oficina
   useEffect(() => {
     if (formulario.ubicacionTipo === 'OFICINA' && formulario.oficinaId) {
       httpClient.get(`/equipos/departamentos?oficinaId=${formulario.oficinaId}`)
@@ -79,7 +78,6 @@ export default function RegistrarEquipo() {
       }
     }
 
-    // Concatenar el nombre del responsable con las observaciones
     const detalleObservaciones = `Responsable: ${formulario.responsableNombre.trim()}${
       formulario.observaciones.trim() ? ` | Observaciones: ${formulario.observaciones.trim()}` : ''
     }`;
@@ -92,16 +90,16 @@ export default function RegistrarEquipo() {
       tiendaId: formulario.ubicacionTipo === 'TIENDA' ? Number(formulario.tiendaId) : null,
       oficinaId: formulario.ubicacionTipo === 'OFICINA' ? Number(formulario.oficinaId) : null,
       departamentoId: formulario.ubicacionTipo === 'OFICINA' ? Number(formulario.departamentoId) : null,
-      propietarioId: null, // Se envía null al no requerir un ID existente en USUARIOS
+      propietarioId: null,
       observaciones: detalleObservaciones
     };
 
     try {
       setGuardando(true);
 
-      await httpClient.post('/equipos', datos);
+      const respuesta = await httpClient.post('/equipos', datos);
 
-      setMensaje('El equipo se registró correctamente.');
+      setMensaje(respuesta.data?.message || 'El equipo se registró correctamente.');
 
       setFormulario({
         tipo: 'Laptop',
@@ -120,7 +118,7 @@ export default function RegistrarEquipo() {
         err.response?.data?.message ||
         err.response?.data?.mensaje ||
         err.response?.data?.detail ||
-        'No se pudo registrar el equipo. Verifica los datos y la API.'
+        'No se pudo registrar el equipo. Revisa la consola o la API.'
       );
     } finally {
       setGuardando(false);

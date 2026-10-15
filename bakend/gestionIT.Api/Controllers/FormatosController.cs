@@ -1,3 +1,4 @@
+
 using System.Security.Claims;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authorization;
@@ -13,6 +14,14 @@ namespace gestionIT.Api.Controllers;
 [EnableCors("PermitirReact")]
 public class FormatosController : ControllerBase
 {
+    // Estados permitidos por CK_EQUIPOS_estado_actual en SQL Server.
+    private const string EstadoEquipoEnReparacion = "En reparacion";
+    private const string EstadoEquipoOperativo = "Operativo";
+    private const string EstadoEquipoBaja = "Baja";
+
+    // Estado utilizado en la tabla REPARACIONES.
+   private const string EstadoReparacionEnProceso = "REGISTRADO";
+
     private readonly IConfiguration _configuration;
     private readonly ILogger<FormatosController> _logger;
 
@@ -26,7 +35,8 @@ public class FormatosController : ControllerBase
 
     private SqlConnection CreateConnection()
     {
-        var connectionString = _configuration.GetConnectionString("Default");
+        var connectionString =
+            _configuration.GetConnectionString("Default");
 
         if (string.IsNullOrWhiteSpace(connectionString))
         {
@@ -39,48 +49,55 @@ public class FormatosController : ControllerBase
 
     private int? TryGetUserId()
     {
-        var value = User.FindFirstValue(ClaimTypes.NameIdentifier)
+        var value =
+            User.FindFirstValue(ClaimTypes.NameIdentifier)
             ?? User.FindFirstValue("sub");
 
-        return int.TryParse(value, out var id) ? id : null;
+        return int.TryParse(value, out var id) && id > 0
+            ? id
+            : null;
     }
 
     private static string NuevoFolio() =>
         "REP-" + Guid.NewGuid().ToString("N")[..16].ToUpperInvariant();
 
-    // GET /api/v1/formatos/reparaciones
+    private const string SelectFormatoBase = """
+        SELECT
+            r.id,
+            r.folio,
+            r.estado,
+            r.fecha_registro AS fechaRegistro,
+            e.id AS equipoId,
+            e.codigo_interno AS codigoInterno,
+            e.nombre AS nombreEquipo,
+            e.tipo AS tipoEquipo,
+            e.marca,
+            e.modelo,
+            e.serie,
+            e.tienda_id AS tiendaId,
+            t.codigo AS tiendaCodigo,
+            t.nombre AS tiendaNombre,
+            u.nombre_completo AS solicitante,
+            fi.estado_fisico_recepcion AS estadoFisico,
+            fi.accesorios_incluidos AS accesorios,
+            fi.falla_reportada AS fallaReportada,
+            fi.fecha_ingreso AS fechaIngreso
+        FROM REPARACIONES r
+        INNER JOIN EQUIPOS e ON e.id = r.equipo_id
+        LEFT JOIN TIENDAS t ON t.id = e.tienda_id
+        LEFT JOIN USUARIOS u ON u.id = r.solicitante_id
+        LEFT JOIN FORMATO_INGRESO fi ON fi.reparacion_id = r.id
+        """;
+
+    // GET: /api/v1/formatos/reparaciones
     [HttpGet("reparaciones")]
     public async Task<IActionResult> GetReparaciones()
     {
         await using var connection = CreateConnection();
         await connection.OpenAsync();
 
-        const string sql = """
-            SELECT
-                r.id,
-                r.folio,
-                r.estado,
-                r.fecha_registro AS fechaRegistro,
-                e.id AS equipoId,
-                e.codigo_interno AS codigoInterno,
-                e.nombre AS nombreEquipo,
-                e.tipo AS tipoEquipo,
-                e.marca,
-                e.modelo,
-                e.serie,
-                e.tienda_id AS tiendaId,
-                t.codigo AS tiendaCodigo,
-                t.nombre AS tiendaNombre,
-                u.nombre_completo AS solicitante,
-                fi.estado_fisico_recepcion AS estadoFisico,
-                fi.accesorios_incluidos AS accesorios,
-                fi.falla_reportada AS fallaReportada,
-                fi.fecha_ingreso AS fechaIngreso
-            FROM REPARACIONES r
-            INNER JOIN EQUIPOS e ON e.id = r.equipo_id
-            LEFT JOIN TIENDAS t ON t.id = e.tienda_id
-            LEFT JOIN USUARIOS u ON u.id = r.solicitante_id
-            LEFT JOIN FORMATO_INGRESO fi ON fi.reparacion_id = r.id
+        const string sql = SelectFormatoBase + """
+
             ORDER BY r.fecha_registro DESC;
             """;
 
@@ -97,44 +114,15 @@ public class FormatosController : ControllerBase
         return Ok(rows);
     }
 
-    // GET /api/v1/formatos/ingreso/123
+    // GET: /api/v1/formatos/ingreso/{id}
     [HttpGet("ingreso/{id:int}")]
-    public async Task<IActionResult> GetIngreso(int id)
+    public async Task<IActionResult> GetIngresoPorId(int id)
     {
-        if (id <= 0)
-        {
-            return BadRequest(new { mensaje = "El identificador no es válido." });
-        }
-
         await using var connection = CreateConnection();
         await connection.OpenAsync();
 
-        const string sql = """
-            SELECT
-                r.id,
-                r.folio,
-                r.estado,
-                r.fecha_registro AS fechaRegistro,
-                e.id AS equipoId,
-                e.codigo_interno AS codigoInterno,
-                e.nombre AS nombreEquipo,
-                e.tipo AS tipoEquipo,
-                e.marca,
-                e.modelo,
-                e.serie,
-                e.tienda_id AS tiendaId,
-                t.codigo AS tiendaCodigo,
-                t.nombre AS tiendaNombre,
-                u.nombre_completo AS solicitante,
-                fi.estado_fisico_recepcion AS estadoFisico,
-                fi.accesorios_incluidos AS accesorios,
-                fi.falla_reportada AS fallaReportada,
-                fi.fecha_ingreso AS fechaIngreso
-            FROM REPARACIONES r
-            INNER JOIN EQUIPOS e ON e.id = r.equipo_id
-            LEFT JOIN TIENDAS t ON t.id = e.tienda_id
-            LEFT JOIN USUARIOS u ON u.id = r.solicitante_id
-            LEFT JOIN FORMATO_INGRESO fi ON fi.reparacion_id = r.id
+        const string sql = SelectFormatoBase + """
+
             WHERE r.id = @id;
             """;
 
@@ -145,296 +133,397 @@ public class FormatosController : ControllerBase
 
         if (!await reader.ReadAsync())
         {
-            return NotFound(new { mensaje = "No se encontró el formato de ingreso." });
+            return NotFound(new
+            {
+                mensaje = "No se encontró el formato de ingreso solicitado."
+            });
         }
 
         return Ok(LeerFormato(reader));
     }
 
-    // POST /api/v1/formatos/ingreso
-    [HttpPost("ingreso")]
-    public async Task<IActionResult> PostIngreso([FromBody] FormatoIngresoRequest request)
+    // GET: /api/v1/formatos/equipos-pendientes
+    [HttpGet("equipos-pendientes")]
+    public async Task<IActionResult> GetEquiposPendientes()
     {
-        var usuarioId = TryGetUserId();
+        await using var connection = CreateConnection();
+        await connection.OpenAsync();
 
-        if (!usuarioId.HasValue)
+        const string sql = """
+            SELECT
+                r.id AS reparacionId,
+                r.folio,
+                e.id AS equipoId,
+                e.nombre AS equipoNombre,
+                e.tipo,
+                e.marca,
+                e.serie,
+                t.nombre AS tiendaNombre,
+                fi.falla_reportada AS falla
+            FROM REPARACIONES r
+            INNER JOIN EQUIPOS e ON e.id = r.equipo_id
+            LEFT JOIN TIENDAS t ON t.id = e.tienda_id
+            LEFT JOIN FORMATO_INGRESO fi ON fi.reparacion_id = r.id
+            WHERE r.estado NOT IN
+                ('ENTREGADO', 'DESCARTADO', 'CANCELADO')
+            ORDER BY r.fecha_registro DESC;
+            """;
+
+        await using var command = new SqlCommand(sql, connection);
+        await using var reader = await command.ExecuteReaderAsync();
+
+        var lista = new List<object>();
+
+        while (await reader.ReadAsync())
         {
-            return Unauthorized(new { mensaje = "El token no contiene un identificador de usuario válido. Vuelve a iniciar sesión." });
+            var nombre = reader.IsDBNull(3) ? "" : reader.GetString(3);
+            var tipo = reader.IsDBNull(4) ? "" : reader.GetString(4);
+            var marca = reader.IsDBNull(5) ? "" : reader.GetString(5);
+            var serie = reader.IsDBNull(6) ? "" : reader.GetString(6);
+
+            lista.Add(new
+            {
+                reparacionId = reader.GetInt32(0),
+                folio = Texto(reader, "folio"),
+                equipoId = reader.GetInt32(2),
+                equipoNombre = nombre,
+                tipo,
+                marca,
+                serie,
+                tienda = reader.IsDBNull(7)
+                    ? "Sin tienda"
+                    : reader.GetString(7),
+                falla = reader.IsDBNull(8) ? "" : reader.GetString(8),
+                etiqueta = $"{nombre} ({tipo} - Serie: {serie})"
+            });
         }
 
-        var validacion = Validar(request);
+        return Ok(lista);
+    }
 
-        if (validacion is not null)
+    // POST: /api/v1/formatos/ingreso
+    [HttpPost("ingreso")]
+    public async Task<IActionResult> PostIngreso(
+        [FromBody] FormatoIngresoRequest? request)
+    {
+        var errorValidacion = ValidarIngreso(request);
+
+        if (errorValidacion is not null)
         {
-            return BadRequest(new { mensaje = validacion });
+            return BadRequest(new { mensaje = errorValidacion });
+        }
+
+        int? usuarioId = TryGetUserId();
+
+        if (usuarioId is null)
+        {
+            return Unauthorized(new
+            {
+                mensaje = "No se encontró el ID del usuario en el token. Cierra sesión e inicia sesión nuevamente."
+            });
         }
 
         await using var connection = CreateConnection();
         await connection.OpenAsync();
 
-        await using var transaction = (SqlTransaction)await connection.BeginTransactionAsync();
-
-        var pasoSql = "Preparar registro";
+        await using var transaction =
+            (SqlTransaction)await connection.BeginTransactionAsync();
 
         try
         {
-            int equipoId;
-            string? errorEquipo = null;
-
-            pasoSql = "Buscar equipo existente";
-
-            const string buscarEquipoSql = """
-                SELECT TOP (1)
-                    id,
-                    tienda_id,
-                    tipo,
-                    serie,
-                    codigo_interno,
-                    estado_actual
-                FROM EQUIPOS WITH (UPDLOCK, HOLDLOCK)
-                WHERE serie = @serie
-                   OR codigo_interno = @codigoInterno;
+            // Comprobar que el usuario del token existe en USUARIOS.
+            const string comprobarUsuarioSql = """
+                SELECT COUNT(1)
+                FROM USUARIOS
+                WHERE id = @usuarioId;
                 """;
 
-            await using (var buscar = new SqlCommand(buscarEquipoSql, connection, transaction))
+            await using (var cmdUsuario = new SqlCommand(
+                comprobarUsuarioSql, connection, transaction))
             {
-                buscar.Parameters.AddWithValue("@serie", request.Serie!.Trim());
-                buscar.Parameters.AddWithValue("@codigoInterno", CodigoInterno(request));
+                cmdUsuario.Parameters.AddWithValue(
+                    "@usuarioId", usuarioId.Value);
 
-                await using var reader = await buscar.ExecuteReaderAsync();
+                int existeUsuario = Convert.ToInt32(
+                    await cmdUsuario.ExecuteScalarAsync());
 
-                if (await reader.ReadAsync())
+                if (existeUsuario == 0)
                 {
-                    equipoId = reader.GetInt32(0);
+                    await RevertirSinLanzarError(transaction);
 
-                    int? tiendaExistente = reader.IsDBNull(1) ? null : reader.GetInt32(1);
-                    string? tipoExistente = reader.IsDBNull(2) ? null : reader.GetString(2);
-                    string? serieExistente = reader.IsDBNull(3) ? null : reader.GetString(3);
-                    string? estadoExistente = reader.IsDBNull(5) ? null : reader.GetString(5);
-
-                    if (!string.Equals(serieExistente, request.Serie.Trim(), StringComparison.OrdinalIgnoreCase))
+                    return Unauthorized(new
                     {
-                        errorEquipo = "El código interno ya está registrado con otro número de serie.";
-                    }
-                    else if (tiendaExistente != request.TiendaId || !string.Equals(tipoExistente, request.TipoEquipo, StringComparison.OrdinalIgnoreCase))
-                    {
-                        errorEquipo = "La serie existe en el inventario, pero la tienda o el tipo no coincide.";
-                    }
-                    else if (string.Equals(estadoExistente, "BAJA", StringComparison.OrdinalIgnoreCase))
-                    {
-                        errorEquipo = "El equipo está dado de baja y no puede ingresar a reparación.";
-                    }
-                }
-                else
-                {
-                    equipoId = 0;
+                        mensaje = "El usuario del token no existe en la tabla USUARIOS. Cierra sesión e inicia sesión nuevamente."
+                    });
                 }
             }
 
-            if (errorEquipo is not null)
+            // Comprobar que la tienda seleccionada existe.
+            const string comprobarTiendaSql = """
+                SELECT COUNT(1)
+                FROM TIENDAS
+                WHERE id = @tiendaId;
+                """;
+
+            await using (var cmdTienda = new SqlCommand(
+                comprobarTiendaSql, connection, transaction))
             {
-                return await RevertirYResponder(transaction, Conflict(errorEquipo));
+                cmdTienda.Parameters.AddWithValue(
+                    "@tiendaId", request!.TiendaId);
+
+                int existeTienda = Convert.ToInt32(
+                    await cmdTienda.ExecuteScalarAsync());
+
+                if (existeTienda == 0)
+                {
+                    await RevertirSinLanzarError(transaction);
+
+                    return BadRequest(new
+                    {
+                        mensaje = "La tienda seleccionada no existe en la tabla TIENDAS."
+                    });
+                }
+            }
+
+            int equipoId = 0;
+            string serieClean = request!.Serie!.Trim();
+
+            const string buscarEquipoSql = """
+                SELECT id
+                FROM EQUIPOS WITH (UPDLOCK, HOLDLOCK)
+                WHERE serie = @serie;
+                """;
+
+            await using (var cmd = new SqlCommand(
+                buscarEquipoSql, connection, transaction))
+            {
+                cmd.Parameters.AddWithValue("@serie", serieClean);
+
+                var res = await cmd.ExecuteScalarAsync();
+
+                if (res != null && res != DBNull.Value)
+                {
+                    equipoId = Convert.ToInt32(res);
+                }
             }
 
             if (equipoId == 0)
             {
-                pasoSql = "Insertar equipo en EQUIPOS";
-
-                const string insertarEquipoSql = """
+                const string crearEquipoSql = """
                     INSERT INTO EQUIPOS
-                        (codigo_interno, nombre, tipo, marca, modelo, serie, estado_actual, tienda_id, propietario_id)
+                    (
+                        codigo_interno,
+                        nombre,
+                        tipo,
+                        marca,
+                        modelo,
+                        serie,
+                        estado_actual,
+                        tienda_id,
+                        fecha_alta
+                    )
+                    OUTPUT INSERTED.id
                     VALUES
-                        (@codigoInterno, @nombre, @tipo, @marca, @modelo, @serie, 'En reparacion', @tiendaId, NULL);
-
-                    SELECT CAST(SCOPE_IDENTITY() AS int);
+                    (
+                        @codigoInterno,
+                        @nombre,
+                        @tipo,
+                        @marca,
+                        @modelo,
+                        @serie,
+                        @estadoActual,
+                        @tiendaId,
+                        SYSDATETIME()
+                    );
                     """;
 
-                await using var insertarEquipo = new SqlCommand(insertarEquipoSql, connection, transaction);
-                AgregarDatosEquipo(insertarEquipo, request);
+                await using var cmdNuevo = new SqlCommand(
+                    crearEquipoSql, connection, transaction);
 
-                var resultadoEquipo = await insertarEquipo.ExecuteScalarAsync();
+                cmdNuevo.Parameters.AddWithValue(
+                    "@codigoInterno",
+                    DbValue(request.CodigoInterno)
+                    ?? ("EQ-" + serieClean.ToUpperInvariant()));
 
-                if (resultadoEquipo is null || resultadoEquipo == DBNull.Value)
-                {
-                    throw new InvalidOperationException("No se obtuvo el identificador del equipo registrado.");
-                }
+                cmdNuevo.Parameters.AddWithValue(
+                    "@nombre", request.NombreEquipo!.Trim());
 
-                equipoId = Convert.ToInt32(resultadoEquipo);
+                cmdNuevo.Parameters.AddWithValue(
+                    "@tipo", request.TipoEquipo!.Trim());
+
+                cmdNuevo.Parameters.AddWithValue(
+                    "@marca", request.Marca!.Trim());
+
+                cmdNuevo.Parameters.AddWithValue(
+                    "@modelo", DbValue(request.Modelo));
+
+                cmdNuevo.Parameters.AddWithValue(
+                    "@serie", serieClean);
+
+                cmdNuevo.Parameters.AddWithValue(
+                    "@estadoActual", EstadoEquipoEnReparacion);
+
+                cmdNuevo.Parameters.AddWithValue(
+                    "@tiendaId", request.TiendaId);
+
+                var newId = await cmdNuevo.ExecuteScalarAsync();
+                equipoId = Convert.ToInt32(newId);
             }
             else
             {
-                pasoSql = "Comprobar reparaciones abiertas";
-
-                const string comprobarAbiertaSql = """
-                    SELECT COUNT(1)
-                    FROM REPARACIONES
-                    WHERE equipo_id = @equipoId
-                      AND estado NOT IN ('ENTREGADO', 'DESCARTADO', 'CANCELADO');
-                    """;
-
-                await using var comprobar = new SqlCommand(comprobarAbiertaSql, connection, transaction);
-                comprobar.Parameters.AddWithValue("@equipoId", equipoId);
-
-                var abiertas = Convert.ToInt32(await comprobar.ExecuteScalarAsync());
-
-                if (abiertas > 0)
-                {
-                    return await RevertirYResponder(transaction, Conflict("Este equipo ya tiene una reparación abierta."));
-                }
-
-                pasoSql = "Actualizar estado del equipo";
-
-                const string actualizarEstadoSql = """
+                const string actEquipoSql = """
                     UPDATE EQUIPOS
-                    SET estado_actual = 'En reparacion'
+                    SET estado_actual = @estadoActual
                     WHERE id = @id;
                     """;
 
-                await using var actualizarEstado = new SqlCommand(actualizarEstadoSql, connection, transaction);
-                actualizarEstado.Parameters.AddWithValue("@id", equipoId);
-                await actualizarEstado.ExecuteNonQueryAsync();
+                await using var cmdAct = new SqlCommand(
+                    actEquipoSql, connection, transaction);
+
+                cmdAct.Parameters.AddWithValue("@id", equipoId);
+                cmdAct.Parameters.AddWithValue(
+                    "@estadoActual", EstadoEquipoEnReparacion);
+
+                await cmdAct.ExecuteNonQueryAsync();
             }
 
-            pasoSql = "Insertar reparación en REPARACIONES";
+            string folio = NuevoFolio();
 
-            var folio = NuevoFolio();
+            const string crearReparacionSql = """
+                INSERT INTO REPARACIONES
+                (
+                    folio,
+                    equipo_id,
+                    solicitante_id,
+                    estado,
+                    fecha_registro
+                )
+                OUTPUT INSERTED.id
+                VALUES
+                (
+                    @folio,
+                    @equipoId,
+                    @solicitanteId,
+                    @estado,
+                    SYSDATETIME()
+                );
+                """;
+
             int reparacionId;
 
-            const string insertarReparacionSql = """
-                INSERT INTO REPARACIONES
-                    (folio, equipo_id, solicitante_id, prioridad, estado, fecha_registro)
-                VALUES
-                    (@folio, @equipoId, @usuarioId, 'MEDIA', 'REGISTRADO', SYSDATETIME());
-
-                SELECT CAST(SCOPE_IDENTITY() AS int);
-                """;
-
-            await using (var insertarReparacion = new SqlCommand(insertarReparacionSql, connection, transaction))
+            await using (var cmdRep = new SqlCommand(
+                crearReparacionSql, connection, transaction))
             {
-                insertarReparacion.Parameters.AddWithValue("@folio", folio);
-                insertarReparacion.Parameters.AddWithValue("@equipoId", equipoId);
-                insertarReparacion.Parameters.AddWithValue("@usuarioId", usuarioId.Value);
+                cmdRep.Parameters.AddWithValue("@folio", folio);
+                cmdRep.Parameters.AddWithValue("@equipoId", equipoId);
 
-                var resultadoReparacion = await insertarReparacion.ExecuteScalarAsync();
+                cmdRep.Parameters.AddWithValue(
+                    "@solicitanteId", usuarioId.Value);
 
-                if (resultadoReparacion is null || resultadoReparacion == DBNull.Value)
-                {
-                    throw new InvalidOperationException("No se obtuvo el identificador de la reparación.");
-                }
+                cmdRep.Parameters.AddWithValue(
+                    "@estado", EstadoReparacionEnProceso);
 
-                reparacionId = Convert.ToInt32(resultadoReparacion);
+                reparacionId = Convert.ToInt32(
+                    await cmdRep.ExecuteScalarAsync());
             }
 
-            pasoSql = "Insertar formato en FORMATO_INGRESO";
-
-            const string insertarFormatoSql = """
+            const string crearFormatoIngresoSql = """
                 INSERT INTO FORMATO_INGRESO
-                    (reparacion_id, falla_reportada, accesorios_incluidos, estado_fisico_recepcion, fecha_ingreso)
+                (
+                    reparacion_id,
+                    estado_fisico_recepcion,
+                    accesorios_incluidos,
+                    falla_reportada,
+                    fecha_ingreso
+                )
                 VALUES
-                    (@reparacionId, @falla, @accesorios, @estadoFisico, SYSDATETIME());
+                (
+                    @reparacionId,
+                    @estadoFisico,
+                    @accesorios,
+                    @falla,
+                    SYSDATETIME()
+                );
                 """;
 
-            await using (var insertarFormato = new SqlCommand(insertarFormatoSql, connection, transaction))
+            await using (var cmdFi = new SqlCommand(
+                crearFormatoIngresoSql, connection, transaction))
             {
-                insertarFormato.Parameters.AddWithValue("@reparacionId", reparacionId);
-                insertarFormato.Parameters.AddWithValue("@falla", request.FallaReportada!.Trim());
-                insertarFormato.Parameters.AddWithValue("@accesorios", DbValue(request.Accesorios));
-                insertarFormato.Parameters.AddWithValue("@estadoFisico", request.EstadoFisico!.Trim());
+                cmdFi.Parameters.AddWithValue("@reparacionId", reparacionId);
 
-                await insertarFormato.ExecuteNonQueryAsync();
-            }
+                cmdFi.Parameters.AddWithValue(
+                    "@estadoFisico", DbValue(request.EstadoFisico));
 
-            pasoSql = "Insertar historial en HISTORIAL_ESTADOS";
+                cmdFi.Parameters.AddWithValue(
+                    "@accesorios", DbValue(request.Accesorios));
 
-            const string insertarHistorialSql = """
-                INSERT INTO HISTORIAL_ESTADOS
-                    (reparacion_id, usuario_id, estado_anterior, estado_nuevo, fecha, comentario)
-                VALUES
-                    (@reparacionId, @usuarioId, NULL, 'REGISTRADO', SYSDATETIME(), 'Ingreso del equipo');
-                """;
+                cmdFi.Parameters.AddWithValue(
+                    "@falla", request.FallaReportada!.Trim());
 
-            await using (var historial = new SqlCommand(insertarHistorialSql, connection, transaction))
-            {
-                historial.Parameters.AddWithValue("@reparacionId", reparacionId);
-                historial.Parameters.AddWithValue("@usuarioId", usuarioId.Value);
-
-                await historial.ExecuteNonQueryAsync();
+                await cmdFi.ExecuteNonQueryAsync();
             }
 
             await transaction.CommitAsync();
 
-            return CreatedAtAction(
-                nameof(GetIngreso),
-                new { id = reparacionId },
-                new
-                {
-                    id = reparacionId,
-                    folio,
-                    mensaje = "Formato de ingreso registrado correctamente."
-                });
-        }
-        catch (SqlException ex) when (ex.Number is 2601 or 2627)
-        {
-            await RevertirSinLanzarError(transaction);
-            _logger.LogWarning(ex, "Registro duplicado. Paso: {PasoSql}", pasoSql);
-
-            return Conflict(new
+            return StatusCode(201, new
             {
-                mensaje = $"No se pudo guardar porque existe un dato duplicado. Operación: {pasoSql}. Revisa el código interno, el número de serie o el folio."
+                folio,
+                reparacionId,
+                mensaje = "Formato de ingreso registrado con éxito."
             });
         }
         catch (SqlException ex)
         {
-            _logger.LogError(ex, "Error SQL al registrar formato de ingreso. Paso: {PasoSql}. Número SQL: {NumeroSql}", pasoSql, ex.Number);
             await RevertirSinLanzarError(transaction);
+
+            _logger.LogError(
+                ex,
+                "Error SQL al registrar formato de ingreso. Número: {NumeroError}",
+                ex.Number);
 
             return StatusCode(500, new
             {
-                mensaje = $"Error SQL {ex.Number} durante '{pasoSql}': {ex.Message}",
-                codigoSql = ex.Number,
-                paso = pasoSql
+                mensaje = $"Error SQL en Ingreso ({ex.Number}): {ex.Message}"
             });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error al registrar formato de ingreso. Paso: {PasoSql}", pasoSql);
             await RevertirSinLanzarError(transaction);
+
+            _logger.LogError(
+                ex,
+                "Error interno al registrar formato de ingreso.");
 
             return StatusCode(500, new
             {
-                mensaje = $"No se pudo registrar el formato durante la operación '{pasoSql}'. Revisa el log de la API.",
-                paso = pasoSql
+                mensaje = "Error interno al procesar ingreso: " + ex.Message
             });
         }
     }
 
-    // PUT /api/v1/formatos/ingreso/123
+    // PUT: /api/v1/formatos/ingreso/{id}
     [HttpPut("ingreso/{id:int}")]
-    public async Task<IActionResult> PutIngreso(int id, [FromBody] FormatoIngresoRequest request)
+    public async Task<IActionResult> PutIngreso(
+        int id,
+        [FromBody] FormatoIngresoRequest? request)
     {
-        if (id <= 0)
-        {
-            return BadRequest(new { mensaje = "El identificador no es válido." });
-        }
+        var errorValidacion = ValidarIngreso(request);
 
-        var validacion = Validar(request);
-
-        if (validacion is not null)
+        if (errorValidacion is not null)
         {
-            return BadRequest(new { mensaje = validacion });
+            return BadRequest(new { mensaje = errorValidacion });
         }
 
         await using var connection = CreateConnection();
         await connection.OpenAsync();
 
-        await using var transaction = (SqlTransaction)await connection.BeginTransactionAsync();
-
-        var pasoSql = "Buscar reparación para actualizar";
+        await using var transaction =
+            (SqlTransaction)await connection.BeginTransactionAsync();
 
         try
         {
             int equipoId = 0;
-            string? estado = null;
+            string? estadoReparacion = null;
 
             const string buscarSql = """
                 SELECT equipo_id, estado
@@ -442,33 +531,48 @@ public class FormatosController : ControllerBase
                 WHERE id = @id;
                 """;
 
-            await using (var buscar = new SqlCommand(buscarSql, connection, transaction))
+            await using (var cmd = new SqlCommand(
+                buscarSql, connection, transaction))
             {
-                buscar.Parameters.AddWithValue("@id", id);
-                await using var reader = await buscar.ExecuteReaderAsync();
+                cmd.Parameters.AddWithValue("@id", id);
+
+                await using var reader = await cmd.ExecuteReaderAsync();
 
                 if (await reader.ReadAsync())
                 {
                     equipoId = reader.GetInt32(0);
-                    estado = reader.IsDBNull(1) ? null : reader.GetString(1);
+                    estadoReparacion = reader.IsDBNull(1)
+                        ? null
+                        : reader.GetString(1);
                 }
             }
 
-            if (estado is null)
+            if (equipoId == 0)
             {
-                return await RevertirYResponder(transaction, NotFound(new { mensaje = "No se encontró el ingreso solicitado." }));
+                return await RevertirYResponder(
+                    transaction,
+                    NotFound(new
+                    {
+                        mensaje = "No se encontró el formato que intentas editar."
+                    }));
             }
 
-            if (!string.Equals(estado, "REGISTRADO", StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(
+                estadoReparacion,
+                EstadoReparacionEnProceso,
+                StringComparison.OrdinalIgnoreCase))
             {
-                return await RevertirYResponder(transaction, Conflict("Solo se pueden editar formatos cuyo estado sea REGISTRADO."));
+                return await RevertirYResponder(
+                    transaction,
+                    Conflict(new
+                    {
+                        mensaje = "Solo se pueden editar formatos cuya reparación está en proceso."
+                    }));
             }
 
-            pasoSql = "Actualizar equipo en EQUIPOS";
-
-            const string equipoSql = """
+            const string actualizarEquipoSql = """
                 UPDATE EQUIPOS
-                SET codigo_interno = @codigoInterno,
+                SET codigo_interno = COALESCE(@codigoInterno, codigo_interno),
                     nombre = @nombre,
                     tipo = @tipo,
                     marca = @marca,
@@ -478,160 +582,257 @@ public class FormatosController : ControllerBase
                 WHERE id = @equipoId;
                 """;
 
-            await using (var updateEquipo = new SqlCommand(equipoSql, connection, transaction))
+            await using (var cmdEq = new SqlCommand(
+                actualizarEquipoSql, connection, transaction))
             {
-                AgregarDatosEquipo(updateEquipo, request);
-                updateEquipo.Parameters.AddWithValue("@equipoId", equipoId);
-                await updateEquipo.ExecuteNonQueryAsync();
+                cmdEq.Parameters.AddWithValue(
+                    "@codigoInterno", DbValue(request!.CodigoInterno));
+
+                cmdEq.Parameters.AddWithValue(
+                    "@nombre", request.NombreEquipo!.Trim());
+
+                cmdEq.Parameters.AddWithValue(
+                    "@tipo", request.TipoEquipo!.Trim());
+
+                cmdEq.Parameters.AddWithValue(
+                    "@marca", request.Marca!.Trim());
+
+                cmdEq.Parameters.AddWithValue(
+                    "@modelo", DbValue(request.Modelo));
+
+                cmdEq.Parameters.AddWithValue(
+                    "@serie", request.Serie!.Trim());
+
+                cmdEq.Parameters.AddWithValue(
+                    "@tiendaId", request.TiendaId);
+
+                cmdEq.Parameters.AddWithValue("@equipoId", equipoId);
+
+                await cmdEq.ExecuteNonQueryAsync();
             }
 
-            pasoSql = "Actualizar formato en FORMATO_INGRESO";
-
-            const string formatoSql = """
+            const string actualizarFormatoSql = """
                 UPDATE FORMATO_INGRESO
-                SET falla_reportada = @falla,
+                SET estado_fisico_recepcion = @estadoFisico,
                     accesorios_incluidos = @accesorios,
-                    estado_fisico_recepcion = @estadoFisico
-                WHERE reparacion_id = @id;
+                    falla_reportada = @falla
+                WHERE reparacion_id = @reparacionId;
                 """;
 
-            await using (var updateFormato = new SqlCommand(formatoSql, connection, transaction))
+            int filas;
+
+            await using (var cmdFi = new SqlCommand(
+                actualizarFormatoSql, connection, transaction))
             {
-                updateFormato.Parameters.AddWithValue("@falla", request.FallaReportada!.Trim());
-                updateFormato.Parameters.AddWithValue("@accesorios", DbValue(request.Accesorios));
-                updateFormato.Parameters.AddWithValue("@estadoFisico", request.EstadoFisico!.Trim());
-                updateFormato.Parameters.AddWithValue("@id", id);
+                cmdFi.Parameters.AddWithValue("@reparacionId", id);
 
-                var filas = await updateFormato.ExecuteNonQueryAsync();
+                cmdFi.Parameters.AddWithValue(
+                    "@estadoFisico", DbValue(request.EstadoFisico));
 
-                if (filas == 0)
-                {
-                    return await RevertirYResponder(transaction, NotFound(new { mensaje = "La reparación existe, pero no tiene un formato de ingreso para actualizar." }));
-                }
+                cmdFi.Parameters.AddWithValue(
+                    "@accesorios", DbValue(request.Accesorios));
+
+                cmdFi.Parameters.AddWithValue(
+                    "@falla", request.FallaReportada!.Trim());
+
+                filas = await cmdFi.ExecuteNonQueryAsync();
+            }
+
+            if (filas == 0)
+            {
+                const string crearFormatoSql = """
+                    INSERT INTO FORMATO_INGRESO
+                    (
+                        reparacion_id,
+                        estado_fisico_recepcion,
+                        accesorios_incluidos,
+                        falla_reportada,
+                        fecha_ingreso
+                    )
+                    VALUES
+                    (
+                        @reparacionId,
+                        @estadoFisico,
+                        @accesorios,
+                        @falla,
+                        SYSDATETIME()
+                    );
+                    """;
+
+                await using var cmdNuevo = new SqlCommand(
+                    crearFormatoSql, connection, transaction);
+
+                cmdNuevo.Parameters.AddWithValue("@reparacionId", id);
+
+                cmdNuevo.Parameters.AddWithValue(
+                    "@estadoFisico", DbValue(request.EstadoFisico));
+
+                cmdNuevo.Parameters.AddWithValue(
+                    "@accesorios", DbValue(request.Accesorios));
+
+                cmdNuevo.Parameters.AddWithValue(
+                    "@falla", request.FallaReportada!.Trim());
+
+                await cmdNuevo.ExecuteNonQueryAsync();
             }
 
             await transaction.CommitAsync();
 
-            return Ok(new { id, mensaje = "Formato de ingreso actualizado correctamente." });
+            return Ok(new
+            {
+                reparacionId = id,
+                mensaje = "Formato de ingreso actualizado correctamente."
+            });
         }
         catch (SqlException ex) when (ex.Number is 2601 or 2627)
         {
             await RevertirSinLanzarError(transaction);
-            _logger.LogWarning(ex, "Dato duplicado al actualizar formato {FormatoId}. Paso: {PasoSql}", id, pasoSql);
 
             return Conflict(new
             {
-                mensaje = $"No se pudo actualizar porque existe un dato duplicado. Operación: {pasoSql}. Revisa el código interno y el número de serie."
+                mensaje = "Ya existe otro equipo con ese número de serie o código interno."
             });
         }
         catch (SqlException ex)
         {
-            _logger.LogError(ex, "Error SQL al actualizar formato {FormatoId}. Paso: {PasoSql}. Número SQL: {NumeroSql}", id, pasoSql, ex.Number);
             await RevertirSinLanzarError(transaction);
+
+            _logger.LogError(
+                ex,
+                "Error SQL al actualizar formato de ingreso. Número: {NumeroError}",
+                ex.Number);
 
             return StatusCode(500, new
             {
-                mensaje = $"Error SQL {ex.Number} durante '{pasoSql}': {ex.Message}",
-                codigoSql = ex.Number,
-                paso = pasoSql
+                mensaje = $"Error SQL al editar ingreso ({ex.Number}): {ex.Message}"
             });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error al actualizar formato {FormatoId}. Paso: {PasoSql}", id, pasoSql);
             await RevertirSinLanzarError(transaction);
+
+            _logger.LogError(
+                ex,
+                "Error interno al actualizar formato de ingreso.");
 
             return StatusCode(500, new
             {
-                mensaje = $"No se pudo actualizar el formato durante la operación '{pasoSql}'. Revisa el log de la API.",
-                paso = pasoSql
+                mensaje = "Error interno al editar ingreso: " + ex.Message
             });
         }
     }
 
-    // POST /api/v1/formatos/salida
+    // POST: /api/v1/formatos/salida
     [HttpPost("salida")]
-    public async Task<IActionResult> PostSalida([FromBody] FormatoSalidaRequest request)
+    public async Task<IActionResult> PostSalida(
+        [FromBody] FormatoSalidaRequest? request)
     {
-        var usuarioId = TryGetUserId();
-
-        if (!usuarioId.HasValue)
+        if (request is null)
         {
-            return Unauthorized(new { mensaje = "El token no contiene un identificador de usuario válido. Vuelve a iniciar sesión." });
+            return BadRequest(new
+            {
+                mensaje = "No se recibieron los datos de salida."
+            });
         }
 
-        if (string.IsNullOrWhiteSpace(request.Folio) && request.ReparacionId <= 0)
+        if (request.ReparacionId <= 0)
         {
-            return BadRequest(new { mensaje = "Debes proporcionar el folio o el ID de la reparación." });
+            return BadRequest(new
+            {
+                mensaje = "Debes seleccionar un equipo o reparación válida."
+            });
         }
 
         if (string.IsNullOrWhiteSpace(request.TrabajoRealizado))
         {
-            return BadRequest(new { mensaje = "El trabajo realizado es obligatorio." });
+            return BadRequest(new
+            {
+                mensaje = "El trabajo realizado es obligatorio."
+            });
         }
 
         await using var connection = CreateConnection();
         await connection.OpenAsync();
 
-        await using var transaction = (SqlTransaction)await connection.BeginTransactionAsync();
+        await using var transaction =
+            (SqlTransaction)await connection.BeginTransactionAsync();
 
         try
         {
-            int reparacionId = request.ReparacionId;
             int equipoId = 0;
-            string? estadoActual = null;
 
-            const string buscarReparacionSql = """
-                SELECT id, equipo_id, estado 
-                FROM REPARACIONES WITH (UPDLOCK, HOLDLOCK) 
-                WHERE (id = @reparacionId OR folio = @folio);
+            const string buscarSql = """
+                SELECT equipo_id
+                FROM REPARACIONES WITH (UPDLOCK, HOLDLOCK)
+                WHERE id = @id;
                 """;
 
-            await using (var cmdBuscar = new SqlCommand(buscarReparacionSql, connection, transaction))
+            await using (var cmd = new SqlCommand(
+                buscarSql, connection, transaction))
             {
-                cmdBuscar.Parameters.AddWithValue("@reparacionId", request.ReparacionId);
-                cmdBuscar.Parameters.AddWithValue("@folio", DbValue(request.Folio));
+                cmd.Parameters.AddWithValue("@id", request.ReparacionId);
 
-                await using var reader = await cmdBuscar.ExecuteReaderAsync();
-                if (await reader.ReadAsync())
+                var res = await cmd.ExecuteScalarAsync();
+
+                if (res != null && res != DBNull.Value)
                 {
-                    reparacionId = reader.GetInt32(0);
-                    equipoId = reader.GetInt32(1);
-                    estadoActual = reader.IsDBNull(2) ? null : reader.GetString(2);
+                    equipoId = Convert.ToInt32(res);
                 }
             }
 
-            if (reparacionId == 0 || equipoId == 0)
+            if (equipoId == 0)
             {
-                return await RevertirYResponder(transaction, NotFound(new { mensaje = "No se encontró la reparación indicada con el folio/ID provisto." }));
-            }
-
-            if (string.Equals(estadoActual, "ENTREGADO", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(estadoActual, "DESCARTADO", StringComparison.OrdinalIgnoreCase))
-            {
-                return await RevertirYResponder(transaction, Conflict(new { mensaje = "Esta reparación ya fue procesada anteriormente." }));
+                return await RevertirYResponder(
+                    transaction,
+                    NotFound(new
+                    {
+                        mensaje = "No se encontró el registro de la reparación seleccionada."
+                    }));
             }
 
             const string insertarSalidaSql = """
-                INSERT INTO FORMATO_SALIDA
-                    (reparacion_id, trabajo_realizado, diagnostico_final, observaciones, fecha_salida)
-                VALUES
-                    (@reparacionId, @trabajo, @diagnostico, @observaciones, SYSDATETIME());
-                """;
+    INSERT INTO FORMATO_SALIDA
+        (
+            reparacion_id,
+            diagnostico_tecnico,
+            trabajo_realizado,
+            pruebas_conformidad_ok,
+            observaciones_garantia,
+            fecha_salida
+        )
+    VALUES
+        (
+            @reparacionId,
+            @diagnostico,
+            @trabajo,
+            @pruebasConformidad,
+            @observaciones,
+            SYSDATETIME()
+        );
+    """;
 
-            await using (var cmdSalida = new SqlCommand(insertarSalidaSql, connection, transaction))
-            {
-                cmdSalida.Parameters.AddWithValue("@reparacionId", reparacionId);
-                cmdSalida.Parameters.AddWithValue("@trabajo", request.TrabajoRealizado.Trim());
-                cmdSalida.Parameters.AddWithValue("@diagnostico", DbValue(request.DiagnosticoTecnico));
-                cmdSalida.Parameters.AddWithValue("@observaciones", DbValue(request.ObservacionesGarantia));
 
-                await cmdSalida.ExecuteNonQueryAsync();
-            }
+           await using (var cmdSalida = new SqlCommand(insertarSalidaSql, connection, transaction))
+{
+    cmdSalida.Parameters.AddWithValue("@reparacionId", request.ReparacionId);
+    cmdSalida.Parameters.AddWithValue("@diagnostico", DbValue(request.DiagnosticoTecnico));
+    cmdSalida.Parameters.AddWithValue("@trabajo", request.TrabajoRealizado.Trim());
+    cmdSalida.Parameters.AddWithValue("@pruebasConformidad", request.PruebasConformidadOk);
+    cmdSalida.Parameters.AddWithValue("@observaciones", DbValue(request.ObservacionesGarantia));
 
-            bool esBaja = string.Equals(request.EstadoFinalEquipo, "BAJA", StringComparison.OrdinalIgnoreCase);
-            string nuevoEstadoReparacion = esBaja ? "DESCARTADO" : "ENTREGADO";
-            string nuevoEstadoEquipo = esBaja ? "BAJA" : "OPERATIVO";
+    await cmdSalida.ExecuteNonQueryAsync();
+}
+
+            bool esBaja = string.Equals(
+                request.EstadoFinalEquipo,
+                "BAJA",
+                StringComparison.OrdinalIgnoreCase);
+
+            string nuevoEstadoReparacion =
+                esBaja ? "DESCARTADO" : "ENTREGADO";
+
+            string nuevoEstadoEquipo =
+                esBaja ? EstadoEquipoBaja : EstadoEquipoOperativo;
 
             const string actualizarReparacionSql = """
                 UPDATE REPARACIONES
@@ -639,11 +840,16 @@ public class FormatosController : ControllerBase
                 WHERE id = @reparacionId;
                 """;
 
-            await using (var cmdActualizar = new SqlCommand(actualizarReparacionSql, connection, transaction))
+            await using (var cmdActRep = new SqlCommand(
+                actualizarReparacionSql, connection, transaction))
             {
-                cmdActualizar.Parameters.AddWithValue("@nuevoEstado", nuevoEstadoReparacion);
-                cmdActualizar.Parameters.AddWithValue("@reparacionId", reparacionId);
-                await cmdActualizar.ExecuteNonQueryAsync();
+                cmdActRep.Parameters.AddWithValue(
+                    "@nuevoEstado", nuevoEstadoReparacion);
+
+                cmdActRep.Parameters.AddWithValue(
+                    "@reparacionId", request.ReparacionId);
+
+                await cmdActRep.ExecuteNonQueryAsync();
             }
 
             const string actualizarEquipoSql = """
@@ -652,41 +858,245 @@ public class FormatosController : ControllerBase
                 WHERE id = @equipoId;
                 """;
 
-            await using (var cmdEquipo = new SqlCommand(actualizarEquipoSql, connection, transaction))
+            await using (var cmdActEq = new SqlCommand(
+                actualizarEquipoSql, connection, transaction))
             {
-                cmdEquipo.Parameters.AddWithValue("@nuevoEstadoEquipo", nuevoEstadoEquipo);
-                cmdEquipo.Parameters.AddWithValue("@equipoId", equipoId);
-                await cmdEquipo.ExecuteNonQueryAsync();
-            }
+                cmdActEq.Parameters.AddWithValue(
+                    "@nuevoEstadoEquipo", nuevoEstadoEquipo);
 
-            const string historialSql = """
-                INSERT INTO HISTORIAL_ESTADOS
-                    (reparacion_id, usuario_id, estado_anterior, estado_nuevo, fecha, comentario)
-                VALUES
-                    (@reparacionId, @usuarioId, @estadoAnterior, @nuevoEstado, SYSDATETIME(), @comentario);
-                """;
+                cmdActEq.Parameters.AddWithValue("@equipoId", equipoId);
 
-            await using (var cmdHistorial = new SqlCommand(historialSql, connection, transaction))
-            {
-                cmdHistorial.Parameters.AddWithValue("@reparacionId", reparacionId);
-                cmdHistorial.Parameters.AddWithValue("@usuarioId", usuarioId.Value);
-                cmdHistorial.Parameters.AddWithValue("@estadoAnterior", DbValue(estadoActual));
-                cmdHistorial.Parameters.AddWithValue("@nuevoEstado", nuevoEstadoReparacion);
-                cmdHistorial.Parameters.AddWithValue("@comentario", esBaja ? "Equipo descartado / Baja técnica" : "Formato de salida registrado / Equipo entregado");
-
-                await cmdHistorial.ExecuteNonQueryAsync();
+                await cmdActEq.ExecuteNonQueryAsync();
             }
 
             await transaction.CommitAsync();
 
-            return Ok(new { mensaje = "Formato de salida registrado correctamente." });
+            return Ok(new
+            {
+                mensaje = "Formato de salida registrado correctamente."
+            });
+        }
+        catch (SqlException ex)
+        {
+            await RevertirSinLanzarError(transaction);
+
+            _logger.LogError(
+                ex,
+                "Error SQL al registrar formato de salida. Número: {NumeroError}",
+                ex.Number);
+
+            return StatusCode(500, new
+            {
+                mensaje = $"Error SQL en Salida ({ex.Number}): {ex.Message}"
+            });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error al registrar formato de salida.");
             await RevertirSinLanzarError(transaction);
-            return StatusCode(500, new { mensaje = "Error interno al procesar el formato de salida: " + ex.Message });
+
+            _logger.LogError(
+                ex,
+                "Error interno al registrar formato de salida.");
+
+            return StatusCode(500, new
+            {
+                mensaje = "Error interno en salida: " + ex.Message
+            });
         }
+    }
+    
+        
+    // PUT: /api/v1/formatos/salida/{id}
+    // El id corresponde a reparacionId.
+    [HttpPut("salida/{id:int}")]
+    public async Task<IActionResult> PutSalida(
+        int id,
+        [FromBody] FormatoSalidaRequest? request)
+    {
+        if (request is null)
+        {
+            return BadRequest(new
+            {
+                mensaje = "No se recibieron los datos del formato de salida."
+            });
+        }
+
+        if (id <= 0)
+        {
+            return BadRequest(new
+            {
+                mensaje = "El identificador de la reparación no es válido."
+            });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.TrabajoRealizado))
+        {
+            return BadRequest(new
+            {
+                mensaje = "El trabajo realizado es obligatorio."
+            });
+        }
+
+        try
+        {
+            await using var connection = CreateConnection();
+            await connection.OpenAsync();
+
+            const string sql = """
+                UPDATE FORMATO_SALIDA
+                SET diagnostico_tecnico = @diagnostico,
+                    trabajo_realizado = @trabajo,
+                    pruebas_conformidad_ok = @pruebasConformidad,
+                    observaciones_garantia = @observaciones
+                WHERE reparacion_id = @reparacionId;
+                """;
+
+            await using var command = new SqlCommand(sql, connection);
+
+            command.Parameters.AddWithValue("@reparacionId", id);
+            command.Parameters.AddWithValue(
+                "@diagnostico", DbValue(request.DiagnosticoTecnico));
+            command.Parameters.AddWithValue(
+                "@trabajo", request.TrabajoRealizado.Trim());
+            command.Parameters.AddWithValue(
+                "@pruebasConformidad", request.PruebasConformidadOk);
+            command.Parameters.AddWithValue(
+                "@observaciones", DbValue(request.ObservacionesGarantia));
+
+            int filas = await command.ExecuteNonQueryAsync();
+
+            if (filas == 0)
+            {
+                return NotFound(new
+                {
+                    mensaje = "No existe un formato de salida guardado para esta reparación."
+                });
+            }
+
+            return Ok(new
+            {
+                reparacionId = id,
+                mensaje = "Formato de salida actualizado correctamente."
+            });
+        }
+        catch (SqlException ex)
+        {
+            _logger.LogError(
+                ex,
+                "Error SQL al actualizar el formato de salida. Reparación: {Id}",
+                id);
+
+            return StatusCode(500, new
+            {
+                mensaje = $"Error SQL al editar salida ({ex.Number}): {ex.Message}"
+            });
+        }
+    }
+
+
+    // GET: /api/v1/formatos/reportes
+    [HttpGet("reportes")]
+    public async Task<IActionResult> GetReportes()
+    {
+        await using var connection = CreateConnection();
+        await connection.OpenAsync();
+           
+const string sql = """
+    SELECT
+        r.id AS reparacionId,
+        r.folio,
+        r.estado,
+        r.fecha_registro AS fechaIngreso,
+        e.nombre AS equipoNombre,
+        e.tipo AS tipoEquipo,
+        e.marca,
+        e.modelo,
+        e.serie,
+        t.nombre AS tiendaNombre,
+        fi.falla_reportada AS fallaReportada,
+        fi.estado_fisico_recepcion AS estadoFisico,
+        fi.accesorios_incluidos AS accesorios,
+        fs.fecha_salida AS fechaSalida,
+        fs.diagnostico_tecnico AS diagnostico,
+        fs.trabajo_realizado AS trabajoRealizado,
+        fs.pruebas_conformidad_ok AS pruebasConformidadOk,
+        fs.observaciones_garantia AS observacionesSalida
+    FROM REPARACIONES r
+    INNER JOIN EQUIPOS e ON e.id = r.equipo_id
+    LEFT JOIN TIENDAS t ON t.id = e.tienda_id
+    LEFT JOIN FORMATO_INGRESO fi ON fi.reparacion_id = r.id
+    LEFT JOIN FORMATO_SALIDA fs ON fs.reparacion_id = r.id
+    ORDER BY r.fecha_registro DESC;
+    """;
+
+
+        await using var command = new SqlCommand(sql, connection);
+        await using var reader = await command.ExecuteReaderAsync();
+
+        var reportes = new List<object>();
+
+        while (await reader.ReadAsync())
+        {
+            reportes.Add(new
+            {
+                reparacionId = reader.GetInt32(0),
+                folio = Texto(reader, "folio"),
+                estado = Texto(reader, "estado"),
+                fechaIngreso = Fecha(reader, "fechaIngreso")?
+                    .ToString("dd/MM/yyyy HH:mm"),
+                equipoNombre = Texto(reader, "equipoNombre") ?? "",
+                tipoEquipo = Texto(reader, "tipoEquipo") ?? "",
+                marca = Texto(reader, "marca") ?? "",
+                modelo = Texto(reader, "modelo") ?? "",
+                serie = Texto(reader, "serie") ?? "",
+                tiendaNombre = Texto(reader, "tiendaNombre") ?? "N/A",
+                fallaReportada = Texto(reader, "fallaReportada") ?? "",
+                estadoFisico = Texto(reader, "estadoFisico") ?? "",
+                accesorios = Texto(reader, "accesorios") ?? "",
+                fechaSalida = Fecha(reader, "fechaSalida")?
+                    .ToString("dd/MM/yyyy HH:mm"),
+                diagnostico = Texto(reader, "diagnostico") ?? "",
+                trabajoRealizado = Texto(reader, "trabajoRealizado") ?? "",
+                pruebasConformidadOk = reader.IsDBNull(
+                reader.GetOrdinal("pruebasConformidadOk"))
+                ? false
+                : Convert.ToBoolean(reader["pruebasConformidadOk"]),
+                observacionesSalida = Texto(reader, "observacionesSalida") ?? ""
+            });
+        }
+
+        return Ok(reportes);
+    }
+
+    // Validación de los datos de ingreso.
+    private static string? ValidarIngreso(
+        FormatoIngresoRequest? request)
+    {
+        if (request is null)
+            return "No se recibieron los datos del formulario de ingreso.";
+
+        if (request.TiendaId <= 0)
+            return "Debes seleccionar una tienda válida.";
+
+        if (string.IsNullOrWhiteSpace(request.NombreEquipo))
+            return "El nombre o descripción del equipo es obligatorio.";
+
+        if (string.IsNullOrWhiteSpace(request.TipoEquipo))
+            return "Debes seleccionar el tipo de equipo.";
+
+        if (string.IsNullOrWhiteSpace(request.Marca))
+            return "La marca del equipo es obligatoria.";
+
+        if (string.IsNullOrWhiteSpace(request.Serie))
+            return "El número de serie es obligatorio.";
+
+        if (string.IsNullOrWhiteSpace(request.EstadoFisico))
+            return "Debes indicar el estado físico del equipo.";
+
+        if (string.IsNullOrWhiteSpace(request.FallaReportada))
+            return "Debes describir la falla reportada.";
+
+        return null;
     }
 
     private static object LeerFormato(SqlDataReader reader) => new
@@ -712,79 +1122,78 @@ public class FormatosController : ControllerBase
         fechaIngreso = Fecha(reader, "fechaIngreso")
     };
 
-    private static string? Texto(SqlDataReader reader, string column)
+    private static string? Texto(
+        SqlDataReader reader, string column)
     {
         var index = reader.GetOrdinal(column);
-        return reader.IsDBNull(index) ? null : Convert.ToString(reader.GetValue(index));
+
+        return reader.IsDBNull(index)
+            ? null
+            : Convert.ToString(reader.GetValue(index));
     }
 
-    private static int? EnteroNulo(SqlDataReader reader, string column)
+    private static int? EnteroNulo(
+        SqlDataReader reader, string column)
     {
         var index = reader.GetOrdinal(column);
-        return reader.IsDBNull(index) ? null : Convert.ToInt32(reader.GetValue(index));
+
+        return reader.IsDBNull(index)
+            ? null
+            : Convert.ToInt32(reader.GetValue(index));
     }
 
-    private static DateTime? Fecha(SqlDataReader reader, string column)
+    private static DateTime? Fecha(
+        SqlDataReader reader, string column)
     {
         var index = reader.GetOrdinal(column);
-        return reader.IsDBNull(index) ? null : Convert.ToDateTime(reader.GetValue(index));
-    }
 
-    private static void AgregarDatosEquipo(SqlCommand command, FormatoIngresoRequest request)
-    {
-        command.Parameters.AddWithValue("@codigoInterno", CodigoInterno(request));
-        command.Parameters.AddWithValue("@nombre", request.NombreEquipo!.Trim());
-        command.Parameters.AddWithValue("@tipo", request.TipoEquipo!.Trim().ToUpperInvariant());
-        command.Parameters.AddWithValue("@marca", DbValue(request.Marca));
-        command.Parameters.AddWithValue("@modelo", DbValue(request.Modelo));
-        command.Parameters.AddWithValue("@serie", request.Serie!.Trim());
-        command.Parameters.AddWithValue("@tiendaId", request.TiendaId);
+        return reader.IsDBNull(index)
+            ? null
+            : Convert.ToDateTime(reader.GetValue(index));
     }
-
-    private static string CodigoInterno(FormatoIngresoRequest request) =>
-        string.IsNullOrWhiteSpace(request.CodigoInterno)
-            ? "SER-" + request.Serie!.Trim().ToUpperInvariant()
-            : request.CodigoInterno.Trim().ToUpperInvariant();
 
     private static object DbValue(string? value) =>
-        string.IsNullOrWhiteSpace(value) ? DBNull.Value : value.Trim();
+        string.IsNullOrWhiteSpace(value)
+            ? DBNull.Value
+            : value.Trim();
 
-    private static string? Validar(FormatoIngresoRequest request)
-    {
-        if (request.TiendaId <= 0) return "Selecciona una tienda válida.";
-        if (string.IsNullOrWhiteSpace(request.NombreEquipo)) return "El nombre o descripción del equipo es obligatorio.";
-        if (string.IsNullOrWhiteSpace(request.Serie)) return "El número de serie es obligatorio.";
-        if (string.IsNullOrWhiteSpace(request.TipoEquipo)) return "Selecciona un tipo de equipo válido.";
-        if (string.IsNullOrWhiteSpace(request.EstadoFisico)) return "El estado físico de recepción es obligatorio.";
-        if (string.IsNullOrWhiteSpace(request.FallaReportada)) return "La falla reportada es obligatoria.";
-
-        var tipos = new[]
-        {
-            "CPU", "LAPTOP", "IMPRESORA_NORMAL", "IMPRESORA_CAJA", "IMPRESORA_ETIQUETAS", "RELOJ_MARCADOR"
-        };
-
-        if (!tipos.Contains(request.TipoEquipo.Trim().ToUpperInvariant()))
-        {
-            return "El tipo de equipo seleccionado no es válido.";
-        }
-
-        return null;
-    }
-
-    private static ConflictObjectResult Conflict(object value) => new(value);
-
-    private static async Task<IActionResult> RevertirYResponder(SqlTransaction transaction, IActionResult response)
+    private static async Task<IActionResult> RevertirYResponder(
+        SqlTransaction transaction,
+        IActionResult response)
     {
         await RevertirSinLanzarError(transaction);
         return response;
     }
 
-    private static async Task RevertirSinLanzarError(SqlTransaction transaction)
+    private static async Task RevertirSinLanzarError(
+        SqlTransaction transaction)
     {
-        try { await transaction.RollbackAsync(); } catch { }
+        try
+        {
+            await transaction.RollbackAsync();
+        }
+        catch
+        {
+            // Evita que el error de rollback oculte el error original.
+        }
     }
 }
 
+// DTO de salida
+public class FormatoSalidaRequest
+{
+    [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    public int ReparacionId { get; set; }
+
+    public string? Folio { get; set; }
+    public string? DiagnosticoTecnico { get; set; }
+    public string? TrabajoRealizado { get; set; }
+    public bool PruebasConformidadOk { get; set; }
+    public string? ObservacionesGarantia { get; set; }
+    public string? EstadoFinalEquipo { get; set; }
+}
+
+// DTO de ingreso
 public class FormatoIngresoRequest
 {
     [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
@@ -799,16 +1208,4 @@ public class FormatoIngresoRequest
     public string? EstadoFisico { get; set; }
     public string? Accesorios { get; set; }
     public string? FallaReportada { get; set; }
-}
-
-public class FormatoSalidaRequest
-{
-    [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
-    public int ReparacionId { get; set; }
-    public string? Folio { get; set; }
-    public string? DiagnosticoTecnico { get; set; }
-    public string? TrabajoRealizado { get; set; }
-    public bool PruebasConformidadOk { get; set; }
-    public string? ObservacionesGarantia { get; set; }
-    public string? EstadoFinalEquipo { get; set; }
 }

@@ -22,9 +22,7 @@ public class EquipoController : ControllerBase
 
         if (string.IsNullOrWhiteSpace(cadena))
         {
-            throw new InvalidOperationException(
-                "No está configurada la conexión Default."
-            );
+            throw new InvalidOperationException("No está configurada la conexión Default.");
         }
 
         return new SqlConnection(cadena);
@@ -69,17 +67,10 @@ public class EquipoController : ControllerBase
 
             FROM EQUIPOS e
 
-            LEFT JOIN TIENDAS t
-                ON t.id = e.tienda_id
-
-            LEFT JOIN OFICINAS o
-                ON o.id = e.oficina_id
-
-            LEFT JOIN DEPARTAMENTOS_OFICINA d
-                ON d.id = e.departamento_id
-
-            LEFT JOIN USUARIOS u
-                ON u.id = e.propietario_id
+            LEFT JOIN TIENDAS t ON t.id = e.tienda_id
+            LEFT JOIN OFICINAS o ON o.id = e.oficina_id
+            LEFT JOIN DEPARTAMENTOS_OFICINA d ON d.id = e.departamento_id
+            LEFT JOIN USUARIOS u ON u.id = e.propietario_id
 
             ORDER BY e.id DESC;
             """;
@@ -137,15 +128,9 @@ public class EquipoController : ControllerBase
 
             return Ok(equipos);
         }
-        catch (SqlException ex)
+        catch (Exception ex)
         {
-            Console.Error.WriteLine($"Error SQL al consultar equipos: {ex}");
-            return StatusCode(500, new { message = "Error al consultar los equipos en la base de datos." });
-        }
-        catch (InvalidOperationException ex)
-        {
-            Console.Error.WriteLine($"Error de configuración al consultar equipos: {ex}");
-            return StatusCode(500, new { message = "No está disponible la conexión a la base de datos." });
+            return StatusCode(500, new { message = "Error al consultar equipos: " + ex.Message });
         }
     }
 
@@ -156,7 +141,6 @@ public class EquipoController : ControllerBase
         const string sql = """
             SELECT id, codigo, nombre
             FROM TIENDAS
-            WHERE activa = 1
             ORDER BY nombre;
             """;
 
@@ -188,7 +172,6 @@ public class EquipoController : ControllerBase
         const string sql = """
             SELECT id, nombre, descripcion
             FROM OFICINAS
-            WHERE activo = 1
             ORDER BY nombre;
             """;
 
@@ -217,18 +200,9 @@ public class EquipoController : ControllerBase
     [HttpGet("departamentos")]
     public async Task<IActionResult> ObtenerDepartamentos([FromQuery] int oficinaId)
     {
-        if (oficinaId <= 0)
-        {
-            return BadRequest(new { message = "Selecciona una oficina válida." });
-        }
+        if (oficinaId <= 0) return BadRequest(new { message = "Selecciona una oficina válida." });
 
-        const string sql = """
-            SELECT id, nombre
-            FROM DEPARTAMENTOS_OFICINA
-            WHERE oficina_id = @oficinaId
-              AND activo = 1
-            ORDER BY nombre;
-            """;
+        const string sql = "SELECT id, nombre FROM DEPARTAMENTOS_OFICINA WHERE oficina_id = @oficinaId ORDER BY nombre;";
 
         await using var conexion = CrearConexion();
         await conexion.OpenAsync();
@@ -237,76 +211,24 @@ public class EquipoController : ControllerBase
         comando.Parameters.AddWithValue("@oficinaId", oficinaId);
 
         await using var lector = await comando.ExecuteReaderAsync();
-
         var departamentos = new List<object>();
 
         while (await lector.ReadAsync())
         {
-            departamentos.Add(new
-            {
-                id = lector.GetInt32(0),
-                nombre = Texto(lector, 1)
-            });
+            departamentos.Add(new { id = lector.GetInt32(0), nombre = Texto(lector, 1) });
         }
 
         return Ok(departamentos);
-    }
-
-    // GET: /api/v1/equipos/responsables
-    [HttpGet("responsables")]
-    public async Task<IActionResult> ObtenerResponsables()
-    {
-        const string sql = """
-            SELECT id, nombre_completo, email
-            FROM USUARIOS
-            WHERE activo = 1
-            ORDER BY nombre_completo;
-            """;
-
-        await using var conexion = CrearConexion();
-        await conexion.OpenAsync();
-
-        await using var comando = new SqlCommand(sql, conexion);
-        await using var lector = await comando.ExecuteReaderAsync();
-
-        var responsables = new List<object>();
-
-        while (await lector.ReadAsync())
-        {
-            responsables.Add(new
-            {
-                id = lector.GetInt32(0),
-                nombreCompleto = Texto(lector, 1),
-                email = Texto(lector, 2)
-            });
-        }
-
-        return Ok(responsables);
     }
 
     // POST: /api/v1/equipos
     [HttpPost]
     public async Task<IActionResult> CrearEquipo([FromBody] CrearEquipoRequest request)
     {
-        if (request is null)
-        {
-            return BadRequest(new { message = "No se recibieron los datos del equipo." });
-        }
-
-        if (string.IsNullOrWhiteSpace(request.Tipo))
-        {
-            return BadRequest(new { message = "El tipo de equipo es obligatorio." });
-        }
-
-        if (string.IsNullOrWhiteSpace(request.Marca))
-        {
-            return BadRequest(new { message = "La marca es obligatoria." });
-        }
-
-        if (string.IsNullOrWhiteSpace(request.Serie))
-        {
-            return BadRequest(new { message = "El número de serie es obligatorio." });
-        }
+        if (request is null) return BadRequest(new { message = "No se recibieron los datos del equipo." });
+        if (string.IsNullOrWhiteSpace(request.Tipo)) return BadRequest(new { message = "El tipo de equipo es obligatorio." });
+        if (string.IsNullOrWhiteSpace(request.Marca)) return BadRequest(new { message = "La marca es obligatoria." });
+        if (string.IsNullOrWhiteSpace(request.Serie)) return BadRequest(new { message = "El número de serie es obligatorio." });
 
         bool tieneTienda = request.TiendaId.HasValue;
         bool tieneOficina = request.OficinaId.HasValue;
@@ -316,21 +238,8 @@ public class EquipoController : ControllerBase
             return BadRequest(new { message = "El equipo debe pertenecer a una tienda o a una oficina, no a ambas." });
         }
 
-        if (tieneTienda && request.TiendaId!.Value <= 0)
-        {
-            return BadRequest(new { message = "Selecciona una tienda válida." });
-        }
-
-        if (tieneOficina && request.OficinaId!.Value <= 0)
-        {
-            return BadRequest(new { message = "Selecciona una oficina válida." });
-        }
-
-        if (tieneTienda && request.DepartamentoId.HasValue)
-        {
-            return BadRequest(new { message = "Un equipo de tienda no debe tener departamento de oficina." });
-        }
-
+        if (tieneTienda && request.TiendaId!.Value <= 0) return BadRequest(new { message = "Selecciona una tienda válida." });
+        if (tieneOficina && request.OficinaId!.Value <= 0) return BadRequest(new { message = "Selecciona una oficina válida." });
         if (tieneOficina && (!request.DepartamentoId.HasValue || request.DepartamentoId.Value <= 0))
         {
             return BadRequest(new { message = "Selecciona un departamento de oficina." });
@@ -340,199 +249,134 @@ public class EquipoController : ControllerBase
         string tipo = request.Tipo.Trim();
         string marca = request.Marca.Trim();
 
-        await using var conexion = CrearConexion();
-        await conexion.OpenAsync();
-
-        // VALIDAR QUE LA SERIE NO ESTÉ REGISTRADA
-        const string comprobarSerie = """
-            SELECT COUNT(*)
-            FROM EQUIPOS
-            WHERE serie = @serie;
-            """;
-
-        await using (var comando = new SqlCommand(comprobarSerie, conexion))
+        try
         {
-            comando.Parameters.AddWithValue("@serie", serie);
+            await using var conexion = CrearConexion();
+            await conexion.OpenAsync();
 
-            int cantidad = Convert.ToInt32(await comando.ExecuteScalarAsync());
-
-            if (cantidad > 0)
+            // 1. VALIDAR SERIE DUPLICADA
+            const string comprobarSerie = "SELECT COUNT(*) FROM EQUIPOS WHERE serie = @serie;";
+            await using (var cmdSerie = new SqlCommand(comprobarSerie, conexion))
             {
-                return Conflict(new { message = "Ya existe un equipo con ese número de serie." });
-            }
-        }
-
-        // VALIDAR TIENDA ACTIVA
-        if (tieneTienda)
-        {
-            const string sqlTienda = """
-                SELECT COUNT(*)
-                FROM TIENDAS
-                WHERE id = @id
-                  AND activa = 1;
-                """;
-
-            await using var comando = new SqlCommand(sqlTienda, conexion);
-            comando.Parameters.AddWithValue("@id", request.TiendaId!.Value);
-
-            int cantidad = Convert.ToInt32(await comando.ExecuteScalarAsync());
-
-            if (cantidad == 0)
-            {
-                return BadRequest(new { message = "La tienda no existe o está inactiva." });
-            }
-        }
-
-        // VALIDAR OFICINA Y DEPARTAMENTO
-        if (tieneOficina)
-        {
-            const string sqlOficina = """
-                SELECT COUNT(*)
-                FROM OFICINAS
-                WHERE id = @id
-                  AND activo = 1;
-                """;
-
-            await using (var comandoOficina = new SqlCommand(sqlOficina, conexion))
-            {
-                comandoOficina.Parameters.AddWithValue("@id", request.OficinaId!.Value);
-                int cantidad = Convert.ToInt32(await comandoOficina.ExecuteScalarAsync());
-
-                if (cantidad == 0)
+                cmdSerie.Parameters.AddWithValue("@serie", serie);
+                if (Convert.ToInt32(await cmdSerie.ExecuteScalarAsync()) > 0)
                 {
-                    return BadRequest(new { message = "La oficina no existe o está inactiva." });
+                    return Conflict(new { message = "Ya existe un equipo con ese número de serie." });
                 }
             }
 
-            const string sqlDepartamento = """
-                SELECT COUNT(*)
-                FROM DEPARTAMENTOS_OFICINA
-                WHERE id = @departamentoId
-                  AND oficina_id = @oficinaId
-                  AND activo = 1;
-                """;
-
-            await using (var comandoDepartamento = new SqlCommand(sqlDepartamento, conexion))
+            // 2. VALIDAR EXISTENCIA DE TIENDA
+            if (tieneTienda)
             {
-                comandoDepartamento.Parameters.AddWithValue("@departamentoId", request.DepartamentoId!.Value);
-                comandoDepartamento.Parameters.AddWithValue("@oficinaId", request.OficinaId!.Value);
-
-                int cantidad = Convert.ToInt32(await comandoDepartamento.ExecuteScalarAsync());
-
-                if (cantidad == 0)
+                const string sqlTienda = "SELECT COUNT(*) FROM TIENDAS WHERE id = @id;";
+                await using var cmdTienda = new SqlCommand(sqlTienda, conexion);
+                cmdTienda.Parameters.AddWithValue("@id", request.TiendaId!.Value);
+                if (Convert.ToInt32(await cmdTienda.ExecuteScalarAsync()) == 0)
                 {
-                    return BadRequest(new { message = "El departamento no pertenece a esa oficina o está inactivo." });
+                    return BadRequest(new { message = "La tienda no existe en la base de datos." });
                 }
             }
+
+            // 3. VALIDAR EXISTENCIA DE OFICINA Y DEPARTAMENTO
+            if (tieneOficina)
+            {
+                const string sqlOficina = "SELECT COUNT(*) FROM OFICINAS WHERE id = @id;";
+                await using (var cmdOficina = new SqlCommand(sqlOficina, conexion))
+                {
+                    cmdOficina.Parameters.AddWithValue("@id", request.OficinaId!.Value);
+                    if (Convert.ToInt32(await cmdOficina.ExecuteScalarAsync()) == 0)
+                    {
+                        return BadRequest(new { message = "La oficina no existe en la base de datos." });
+                    }
+                }
+
+                const string sqlDept = "SELECT COUNT(*) FROM DEPARTAMENTOS_OFICINA WHERE id = @dId AND oficina_id = @oId;";
+                await using (var cmdDept = new SqlCommand(sqlDept, conexion))
+                {
+                    cmdDept.Parameters.AddWithValue("@dId", request.DepartamentoId!.Value);
+                    cmdDept.Parameters.AddWithValue("@oId", request.OficinaId!.Value);
+                    if (Convert.ToInt32(await cmdDept.ExecuteScalarAsync()) == 0)
+                    {
+                        return BadRequest(new { message = "El departamento no pertenece a esa oficina." });
+                    }
+                }
+            }
+
+            // 4. GUARDAR EQUIPO EN SQL SERVER
+            const string insertar = """
+                INSERT INTO EQUIPOS
+                (
+                    codigo_interno,
+                    nombre,
+                    tipo,
+                    marca,
+                    modelo,
+                    serie,
+                    estado_actual,
+                    tienda_id,
+                    departamento_id,
+                    propietario_id,
+                    fecha_alta,
+                    comentarios,
+                    oficina_id
+                )
+                OUTPUT INSERTED.id
+                VALUES
+                (
+                    @codigoInterno,
+                    @nombre,
+                    @tipo,
+                    @marca,
+                    @modelo,
+                    @serie,
+                    'Disponible',
+                    @tiendaId,
+                    @departamentoId,
+                    @propietarioId,
+                    SYSDATETIME(),
+                    @comentarios,
+                    @oficinaId
+                );
+                """;
+
+            await using var insert = new SqlCommand(insertar, conexion);
+
+            string codigoGenerado = "EQ-" + serie.ToUpperInvariant();
+
+            insert.Parameters.AddWithValue("@codigoInterno", codigoGenerado);
+            insert.Parameters.AddWithValue("@nombre", $"{tipo} - {marca}");
+            insert.Parameters.AddWithValue("@tipo", tipo);
+            insert.Parameters.AddWithValue("@marca", marca);
+            insert.Parameters.AddWithValue("@serie", serie);
+
+            insert.Parameters.AddWithValue("@modelo", (object?)(string.IsNullOrWhiteSpace(request.Modelo) ? null : request.Modelo.Trim()) ?? DBNull.Value);
+            insert.Parameters.AddWithValue("@tiendaId", (object?)request.TiendaId ?? DBNull.Value);
+            insert.Parameters.AddWithValue("@oficinaId", (object?)request.OficinaId ?? DBNull.Value);
+            insert.Parameters.AddWithValue("@departamentoId", (object?)request.DepartamentoId ?? DBNull.Value);
+            insert.Parameters.AddWithValue("@propietarioId", (object?)request.PropietarioId ?? DBNull.Value);
+            insert.Parameters.AddWithValue("@comentarios", (object?)(string.IsNullOrWhiteSpace(request.Observaciones) ? null : request.Observaciones.Trim()) ?? DBNull.Value);
+
+            var idResult = await insert.ExecuteScalarAsync();
+
+            return StatusCode(201, new
+            {
+                id = Convert.ToInt32(idResult),
+                message = "Equipo registrado correctamente."
+            });
         }
-
-        // GUARDAR EL EQUIPO EN SQL SERVER
-        const string insertar = """
-            INSERT INTO EQUIPOS
-            (
-                codigo_interno,
-                nombre,
-                tipo,
-                marca,
-                modelo,
-                serie,
-                estado_actual,
-                tienda_id,
-                departamento_id,
-                area_id,
-                propietario_id,
-                fecha_alta,
-                comentarios,
-                oficina_id
-            )
-            OUTPUT INSERTED.id
-            VALUES
-            (
-                @codigoInterno,
-                @nombre,
-                @tipo,
-                @marca,
-                @modelo,
-                @serie,
-                'Disponible',
-                @tiendaId,
-                @departamentoId,
-                NULL,
-                @propietarioId,
-                SYSDATETIME(),
-                @comentarios,
-                @oficinaId
-            );
-            """;
-
-        await using var insert = new SqlCommand(insertar, conexion);
-
-        insert.Parameters.AddWithValue("@codigoInterno", serie);
-        insert.Parameters.AddWithValue("@nombre", $"Equipo - {tipo}");
-        insert.Parameters.AddWithValue("@tipo", tipo);
-        insert.Parameters.AddWithValue("@marca", marca);
-        insert.Parameters.AddWithValue("@serie", serie);
-
-        insert.Parameters.AddWithValue(
-            "@modelo",
-            (object?)(string.IsNullOrWhiteSpace(request.Modelo) ? null : request.Modelo.Trim()) ?? DBNull.Value
-        );
-
-        insert.Parameters.AddWithValue(
-            "@tiendaId",
-            (object?)request.TiendaId ?? DBNull.Value
-        );
-
-        insert.Parameters.AddWithValue(
-            "@departamentoId",
-            (object?)request.DepartamentoId ?? DBNull.Value
-        );
-
-        insert.Parameters.AddWithValue(
-            "@propietarioId",
-            (object?)request.PropietarioId ?? DBNull.Value
-        );
-
-        insert.Parameters.AddWithValue(
-            "@comentarios",
-            (object?)(string.IsNullOrWhiteSpace(request.Observaciones) ? null : request.Observaciones.Trim()) ?? DBNull.Value
-        );
-
-        insert.Parameters.AddWithValue(
-            "@oficinaId",
-            (object?)request.OficinaId ?? DBNull.Value
-        );
-
-        var resultado = await insert.ExecuteScalarAsync();
-
-        if (resultado is null || resultado == DBNull.Value)
+        catch (SqlException ex)
         {
-            return StatusCode(500, new { message = "No se pudo confirmar el registro del equipo." });
+            return StatusCode(500, new { message = $"Error en la Base de Datos ({ex.Number}): {ex.Message}" });
         }
-
-        int nuevoId = Convert.ToInt32(resultado);
-
-        return StatusCode(201, new
+        catch (Exception ex)
         {
-            id = nuevoId,
-            message = "Equipo registrado correctamente."
-        });
+            return StatusCode(500, new { message = "Error interno del servidor: " + ex.Message });
+        }
     }
 
-    private static string? Texto(SqlDataReader lector, int indice)
-    {
-        return lector.IsDBNull(indice) ? null : Convert.ToString(lector.GetValue(indice));
-    }
-
-    private static int? EnteroNullable(SqlDataReader lector, int indice)
-    {
-        return lector.IsDBNull(indice) ? null : Convert.ToInt32(lector.GetValue(indice));
-    }
-
-    private static DateTime? FechaNullable(SqlDataReader lector, int indice)
-    {
-        return lector.IsDBNull(indice) ? null : Convert.ToDateTime(lector.GetValue(indice));
-    }
+    private static string? Texto(SqlDataReader lector, int indice) => lector.IsDBNull(indice) ? null : Convert.ToString(lector.GetValue(indice));
+    private static int? EnteroNullable(SqlDataReader lector, int indice) => lector.IsDBNull(indice) ? null : Convert.ToInt32(lector.GetValue(indice));
+    private static DateTime? FechaNullable(SqlDataReader lector, int indice) => lector.IsDBNull(indice) ? null : Convert.ToDateTime(lector.GetValue(indice));
 }
 
 public class CrearEquipoRequest
