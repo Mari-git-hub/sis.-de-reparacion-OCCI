@@ -18,7 +18,8 @@ import FormatoSalida from './pages/FormatoSalida';
 import AlertasInsumos from './pages/AlertaInsumos';
 import Inventario from './pages/Inventario';
 import Reparaciones from './pages/Reparaciones';
-import Tableros from './pages/Tableros';
+import ReportesFormatos from './pages/ReportesFormatos';
+//import Tableros from './pages/Tableros';
 import Usuarios from './pages/Usuario';
 
 // NUEVOS FORMULARIOS DE REGISTRO
@@ -175,7 +176,7 @@ export default function App() {
               path="/reportes"
               element={
                 <RutaProtegida>
-                  <Tableros />
+                  <ReportesFormatos />
                 </RutaProtegida>
               }
             />
