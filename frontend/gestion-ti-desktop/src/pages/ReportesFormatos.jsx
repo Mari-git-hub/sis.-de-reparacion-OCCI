@@ -1,21 +1,74 @@
 import { useState, useEffect } from 'react';
+import * as XLSX from 'xlsx';
 import httpClient from '../api/httpClient';
 import './ReportesFormatos.css';
 
 export default function ReportesFormatos() {
   const [reportes, setReportes] = useState([]);
+  const [filtroMes, setFiltroMes] = useState('');
+  const [filtroAnio, setFiltroAnio] = useState('');
   const [cargando, setCargando] = useState(true);
   const [editando, setEditando] = useState(null);
-const [guardandoEdicion, setGuardandoEdicion] = useState(false);
-const [errorEdicion, setErrorEdicion] = useState('');
-const [mensajeEdicion, setMensajeEdicion] = useState('');
+  const [guardandoEdicion, setGuardandoEdicion] = useState(false);
+  const [errorEdicion, setErrorEdicion] = useState('');
+  const [mensajeEdicion, setMensajeEdicion] = useState('');
 
-const [formSalida, setFormSalida] = useState({
-  diagnostico: '',
-  trabajoRealizado: '',
-  observacionesSalida: '',
-  pruebasConformidadOk: false
-});
+  const [formSalida, setFormSalida] = useState({
+    diagnostico: '',
+    trabajoRealizado: '',
+    observacionesSalida: '',
+    pruebasConformidadOk: false
+  });
+
+  const fechaReporte = (valor) => {
+    if (!valor) return null;
+    const texto = String(valor);
+    const partes = texto.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2}))?/);
+    if (partes) {
+      const fecha = new Date(Number(partes[3]), Number(partes[2]) - 1, Number(partes[1]), Number(partes[4] || 0), Number(partes[5] || 0));
+      return Number.isNaN(fecha.getTime()) ? null : fecha;
+    }
+    const fecha = new Date(texto);
+    return Number.isNaN(fecha.getTime()) ? null : fecha;
+  };
+
+  const reportesFiltrados = reportes.filter((item) => {
+    const fecha = fechaReporte(item.fechaIngreso);
+    if (!fecha) return !filtroMes && !filtroAnio;
+    const coincideMes = !filtroMes || String(fecha.getMonth() + 1) === filtroMes;
+    const coincideAnio = !filtroAnio || String(fecha.getFullYear()) === filtroAnio;
+    return coincideMes && coincideAnio;
+  });
+
+  const exportarExcel = () => {
+    if (reportesFiltrados.length === 0) {
+      alert('No hay registros para exportar con los filtros seleccionados.');
+      return;
+    }
+    const filas = reportesFiltrados.map((item) => ({
+      Folio: item.folio || '',
+      FechaIngreso: item.fechaIngreso || '',
+      Equipo: item.equipoNombre || '',
+      Tipo: item.tipoEquipo || '',
+      Marca: item.marca || '',
+      Modelo: item.modelo || '',
+      Serie: item.serie || '',
+      Tienda: item.tiendaNombre || '',
+      FallaReportada: item.fallaReportada || '',
+      Estado: item.estado || '',
+      FechaSalida: item.fechaSalida || '',
+      Diagnostico: item.diagnostico || '',
+      TrabajoRealizado: item.trabajoRealizado || '',
+      PruebasConformidad: item.pruebasConformidadOk ? 'Sí' : 'No',
+      ObservacionesSalida: item.observacionesSalida || ''
+    }));
+    const hoja = XLSX.utils.json_to_sheet(filas);
+    hoja['!cols'] = Object.keys(filas[0]).map((clave) => ({ wch: Math.max(clave.length + 2, 18) }));
+    const libro = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(libro, hoja, 'Reportes');
+    const sufijo = [filtroAnio || 'todos', filtroMes ? String(filtroMes).padStart(2, '0') : 'todos'].join('-');
+    XLSX.writeFile(libro, `reportes-reparaciones-${sufijo}.xlsx`);
+  };
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/immutability
@@ -33,64 +86,48 @@ const [formSalida, setFormSalida] = useState({
     }
   };
 
-  
-const iniciarEdicionSalida = (item) => {
-  setEditando(item);
-  setErrorEdicion('');
-  setMensajeEdicion('');
+  const guardarEdicionSalida = async (e) => {
+    e.preventDefault();
+    setErrorEdicion('');
+    setMensajeEdicion('');
 
-  setFormSalida({
-    diagnostico: item.diagnostico || '',
-    trabajoRealizado: item.trabajoRealizado || '',
-    observacionesSalida: item.observacionesSalida || '',
-    pruebasConformidadOk: Boolean(item.pruebasConformidadOk)
-  });
-};
+    if (!editando) return;
 
-const guardarEdicionSalida = async (e) => {
-  e.preventDefault();
-  setErrorEdicion('');
-  setMensajeEdicion('');
+    if (!formSalida.trabajoRealizado.trim()) {
+      setErrorEdicion('El trabajo realizado es obligatorio.');
+      return;
+    }
 
-  if (!editando) return;
+    try {
+      setGuardandoEdicion(true);
 
-  if (!formSalida.trabajoRealizado.trim()) {
-    setErrorEdicion('El trabajo realizado es obligatorio.');
-    return;
-  }
+      const respuesta = await httpClient.put(
+        `/formatos/salida/${editando.reparacionId}`,
+        {
+          reparacionId: editando.reparacionId,
+          diagnosticoTecnico: formSalida.diagnostico.trim(),
+          trabajoRealizado: formSalida.trabajoRealizado.trim(),
+          pruebasConformidadOk: formSalida.pruebasConformidadOk,
+          observacionesGarantia: formSalida.observacionesSalida.trim()
+        }
+      );
 
-  try {
-    setGuardandoEdicion(true);
+      setMensajeEdicion(
+        respuesta.data?.mensaje || 'Formato de salida actualizado.'
+      );
 
-    const respuesta = await httpClient.put(
-      `/formatos/salida/${editando.reparacionId}`,
-      {
-        reparacionId: editando.reparacionId,
-        diagnosticoTecnico: formSalida.diagnostico.trim(),
-        trabajoRealizado: formSalida.trabajoRealizado.trim(),
-        pruebasConformidadOk: formSalida.pruebasConformidadOk,
-        observacionesGarantia: formSalida.observacionesSalida.trim()
-      }
-    );
-
-    setMensajeEdicion(
-      respuesta.data?.mensaje || 'Formato de salida actualizado.'
-    );
-
-    setEditando(null);
-    await cargarReportes();
-  } catch (err) {
-    setErrorEdicion(
-      err.response?.data?.mensaje ||
-      err.response?.data?.message ||
-      'No fue posible actualizar el formato de salida.'
-    );
-  } finally {
-    setGuardandoEdicion(false);
-  }
-};
-
-
+      setEditando(null);
+      await cargarReportes();
+    } catch (err) {
+      setErrorEdicion(
+        err.response?.data?.mensaje ||
+        err.response?.data?.message ||
+        'No fue posible actualizar el formato de salida.'
+      );
+    } finally {
+      setGuardandoEdicion(false);
+    }
+  };
 
   const imprimirPDF = (item, tipoFormato) => {
     const ventana = window.open('', '_blank');
@@ -100,7 +137,7 @@ const guardarEdicionSalida = async (e) => {
       <!DOCTYPE html>
       <html>
       <head>
-        <title>${esIngreso ? 'Formato de Ingreso' : 'Formato de Salida'} - ${item.folio}</title>
+        <title>${esIngreso ? 'Formato de Ingreso' : 'Formato de Salida'} ${item.folio}</title>
         <style>
           body { font-family: Arial, sans-serif; margin: 30px; color: #333; }
           .encabezado { text-align: center; border-bottom: 2px solid #004085; padding-bottom: 10px; }
@@ -171,97 +208,117 @@ const guardarEdicionSalida = async (e) => {
   return (
     <div className="reportes-contenedor">
       <h2>Historial de Registro de Formatos</h2>
-        
-{mensajeEdicion && (
-  <div className="mensaje-exito">{mensajeEdicion}</div>
-)}
 
-{errorEdicion && (
-  <div className="mensaje-error">{errorEdicion}</div>
-)}
+      <section className="filtros-reportes" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'end', margin: '16px 0' }}>
+        <label style={{ display: 'grid', gap: '5px' }}>
+          Filtrar por mes
+          <select value={filtroMes} onChange={(e) => setFiltroMes(e.target.value)}>
+            <option value="">Todos los meses</option>
+            <option value="1">Enero</option><option value="2">Febrero</option>
+            <option value="3">Marzo</option><option value="4">Abril</option>
+            <option value="5">Mayo</option><option value="6">Junio</option>
+            <option value="7">Julio</option><option value="8">Agosto</option>
+            <option value="9">Septiembre</option><option value="10">Octubre</option>
+            <option value="11">Noviembre</option><option value="12">Diciembre</option>
+          </select>
+        </label>
+        <label style={{ display: 'grid', gap: '5px' }}>
+          Filtrar por año
+          <input type="number" min="2000" max="2100" placeholder="Ej. 2026" value={filtroAnio} onChange={(e) => setFiltroAnio(e.target.value)} />
+        </label>
+        <button type="button" onClick={() => { setFiltroMes(''); setFiltroAnio(''); }}>Limpiar filtros</button>
+        <button type="button" className="btn-pdf" onClick={exportarExcel}>Descargar Excel (.xlsx)</button>
+        <span>Registros: {reportesFiltrados.length}</span>
+      </section>
 
-{editando && (
-  <form onSubmit={guardarEdicionSalida} className="tarjeta-formulario">
-    <h3>Editar formato de salida: {editando.folio}</h3>
+      {mensajeEdicion && (
+        <div className="mensaje-exito">{mensajeEdicion}</div>
+      )}
 
-    <div className="campo-formulario">
-      <label>Diagnóstico técnico</label>
-      <textarea
-        rows={3}
-        value={formSalida.diagnostico}
-        onChange={(e) =>
-          setFormSalida({
-            ...formSalida,
-            diagnostico: e.target.value
-          })
-        }
-      />
-    </div>
+      {errorEdicion && (
+        <div className="mensaje-error">{errorEdicion}</div>
+      )}
 
-    <div className="campo-formulario">
-      <label>Trabajo realizado / repuestos *</label>
-      <textarea
-        rows={3}
-        required
-        value={formSalida.trabajoRealizado}
-        onChange={(e) =>
-          setFormSalida({
-            ...formSalida,
-            trabajoRealizado: e.target.value
-          })
-        }
-      />
-    </div>
+      {editando && (
+        <form onSubmit={guardarEdicionSalida} className="tarjeta-formulario">
+          <h3>Editar formato de salida: {editando.folio}</h3>
 
-    <div className="campo-formulario">
-      <label>Observaciones de garantía</label>
-      <textarea
-        rows={2}
-        value={formSalida.observacionesSalida}
-        onChange={(e) =>
-          setFormSalida({
-            ...formSalida,
-            observacionesSalida: e.target.value
-          })
-        }
-      />
-    </div>
+          <div className="campo-formulario">
+            <label>Diagnóstico técnico</label>
+            <textarea
+              rows={3}
+              value={formSalida.diagnostico}
+              onChange={(e) =>
+                setFormSalida({
+                  ...formSalida,
+                  diagnostico: e.target.value
+                })
+              }
+            />
+          </div>
 
-    <div className="campo-formulario">
-      <label>
-        <input
-          type="checkbox"
-          checked={formSalida.pruebasConformidadOk}
-          onChange={(e) =>
-            setFormSalida({
-              ...formSalida,
-              pruebasConformidadOk: e.target.checked
-            })
-          }
-        />
-        {' '}Pruebas de conformidad satisfactorias
-      </label>
-    </div>
+          <div className="campo-formulario">
+            <label>Trabajo realizado / repuestos *</label>
+            <textarea
+              rows={3}
+              required
+              value={formSalida.trabajoRealizado}
+              onChange={(e) =>
+                setFormSalida({
+                  ...formSalida,
+                  trabajoRealizado: e.target.value
+                })
+              }
+            />
+          </div>
 
-    <button
-      type="submit"
-      className="boton-principal"
-      disabled={guardandoEdicion}
-    >
-      {guardandoEdicion ? 'Guardando...' : 'Guardar cambios'}
-    </button>
+          <div className="campo-formulario">
+            <label>Observaciones de garantía</label>
+            <textarea
+              rows={2}
+              value={formSalida.observacionesSalida}
+              onChange={(e) =>
+                setFormSalida({
+                  ...formSalida,
+                  observacionesSalida: e.target.value
+                })
+              }
+            />
+          </div>
 
-    <button
-      type="button"
-      onClick={() => setEditando(null)}
-      disabled={guardandoEdicion}
-    >
-      Cancelar
-    </button>
-  </form>
-)}
+          <div className="campo-formulario">
+            <label>
+              <input
+                type="checkbox"
+                checked={formSalida.pruebasConformidadOk}
+                onChange={(e) =>
+                  setFormSalida({
+                    ...formSalida,
+                    pruebasConformidadOk: e.target.checked
+                  })
+                }
+              />
+              {' '}Pruebas de conformidad satisfactorias
+            </label>
+          </div>
 
+          <button
+            type="submit"
+            className="boton-principal"
+            disabled={guardandoEdicion}
+          >
+            {guardandoEdicion ? 'Guardando...' : 'Guardar cambios'}
+          </button>
 
+          <button
+            type="button"
+            onClick={() => setEditando(null)}
+            disabled={guardandoEdicion}
+          >
+            Cancelar
+          </button>
+        </form>
+      )}
 
       <table className="tabla-reportes">
         <thead>
@@ -271,46 +328,42 @@ const guardarEdicionSalida = async (e) => {
             <th>Serie</th>
             <th>Falla / Ingreso</th>
             <th>Estado</th>
-            <th>Acciones PDF</th>
+            <th>PDF</th>
           </tr>
         </thead>
         <tbody>
-          {reportes.map((item) => (
+          {reportesFiltrados.map((item) => (
             <tr key={item.reparacionId}>
               <td><strong>{item.folio}</strong></td>
               <td>{item.equipoNombre}</td>
               <td>{item.serie}</td>
               <td>{item.fallaReportada}</td>
               <td>
-                <span className={`etiqueta-estado ${item.estado.toLowerCase()}`}>
+                <span className={`etiqueta-estado ${item.estado ? item.estado.toLowerCase() : ''}`}>
                   {item.estado}
                 </span>
               </td>
               <td>
-                <button className="btn-pdf" onClick={() => imprimirPDF(item, 'INGRESO')}>
-                  📄 PDF Ingreso
-                </button>
-               {item.fechaSalida && (
-  <>
-    <button
-      className="btn-pdf btn-salida"
-      onClick={() => imprimirPDF(item, 'SALIDA')}
-      type="button"
-    >
-      📄 PDF Salida
-    </button>
-
-    <button
-      type="button"
-      onClick={() => iniciarEdicionSalida(item)}
-    >
-      ✏️ Editar salida
-    </button>
-  </>
-)}    
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  <button className="btn-pdf" onClick={() => imprimirPDF(item, 'INGRESO')} type="button">
+                    📄 PDF Ingreso
+                  </button>
+                  {item.fechaSalida && (
+                    <button
+                      className="btn-pdf btn-salida"
+                      onClick={() => imprimirPDF(item, 'SALIDA')}
+                      type="button"
+                    >
+                      📄 PDF Salida
+                    </button>
+                  )}
+                </div>
               </td>
             </tr>
           ))}
+          {reportesFiltrados.length === 0 && (
+            <tr><td colSpan={6} style={{ textAlign: 'center', padding: '18px' }}>No hay registros para el período seleccionado.</td></tr>
+          )}
         </tbody>
       </table>
     </div>

@@ -11,21 +11,25 @@
     "preview": "vite preview",
     "electron": "electron .",
     "dist": "npm run build && electron-builder"
-
   },
-"build": {
+  "build": {
     "appId": "com.tuempresa.gestionti",
     "productName": "Gestión TI",
-    "win": { "target": "nsis" },
-    "files": ["dist/**/*", "electron/**/*"]
+    "win": {
+      "target": "nsis"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ]
   },
-
   "dependencies": {
     "axios": "^1.20.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.4",
-    "recharts": "^3.10.1"
+    "recharts": "^3.10.1",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -1,4 +1,3 @@
-
 import { useCallback, useEffect, useState } from 'react';
 import httpClient from '../api/httpClient';
 import './FormatoIngreso.css';
@@ -25,10 +24,6 @@ function obtenerLista(data) {
   return [];
 }
 
-function texto(valor) {
-  return valor == null || valor === '' ? 'No indicado' : String(valor);
-}
-
 function escapar(valor) {
   return String(valor ?? '')
     .replaceAll('&', '&amp;')
@@ -40,54 +35,106 @@ function escapar(valor) {
 
 function fechaLocal(valor) {
   if (!valor) return 'No indicada';
+
   const fecha = new Date(valor);
+
   return Number.isNaN(fecha.getTime())
     ? 'No indicada'
     : fecha.toLocaleString('es-HN');
 }
 
-function imprimirFormato(item) {
+function abrirFormato(item, imprimir = false) {
   const ventana = window.open('', '_blank', 'width=900,height=750');
 
   if (!ventana) {
     alert(
-      'El navegador bloqueó la ventana. Permite ventanas emergentes para este sitio.'
+      'El navegador bloqueó la ventana. Permite las ventanas emergentes para esta aplicación.'
     );
     return;
   }
 
   const tienda =
-    [item.tiendaCodigo, item.tiendaNombre].filter(Boolean).join(' - ') ||
-    `Tienda ${item.tiendaId ?? ''}`;
+    [item.tiendaCodigo, item.tiendaNombre]
+      .filter(Boolean)
+      .join(' - ') || `Tienda ${item.tiendaId ?? ''}`;
 
   const html = `<!doctype html>
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>Formato de ingreso ${escapar(item.folio || item.id)}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Formato de ingreso ${escapar(item.folio || item.id || 'Nuevo')}</title>
 <style>
 @page { size: A4; margin: 16mm; }
 * { box-sizing: border-box; }
-body { font-family: Arial, sans-serif; color: #172033; font-size: 12px; }
-header { border-bottom: 3px solid #075985; padding-bottom: 12px; margin-bottom: 20px; }
+body {
+  font-family: Arial, sans-serif;
+  color: #172033;
+  font-size: 12px;
+}
+header {
+  border-bottom: 3px solid #075985;
+  padding-bottom: 12px;
+  margin-bottom: 20px;
+}
 h1 { font-size: 22px; margin: 0 0 6px; }
-h2 { font-size: 14px; background: #eff6ff; padding: 9px; margin-top: 20px; }
+h2 {
+  font-size: 14px;
+  background: #eff6ff;
+  padding: 9px;
+  margin-top: 20px;
+}
 .sub { color: #526176; }
 .folio { float: right; font-weight: bold; }
-.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 20px; }
-.campo { border-bottom: 1px solid #dbe3ed; padding: 8px 0; min-height: 35px; }
-.etiqueta { font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: bold; margin-bottom: 4px; }
-.valor { white-space: pre-wrap; overflow-wrap: anywhere; }
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 20px;
+}
+.campo {
+  border-bottom: 1px solid #dbe3ed;
+  padding: 8px 0;
+  min-height: 35px;
+}
+.etiqueta {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: #64748b;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+.valor {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .ancho { grid-column: 1 / -1; }
-.firmas { display: grid; grid-template-columns: 1fr 1fr; gap: 50px; margin-top: 65px; text-align: center; }
-.firma { border-top: 1px solid #475569; padding-top: 8px; }
-footer { margin-top: 25px; color: #64748b; font-size: 10px; text-align: center; }
-@media print { .no-print { display: none; } }
+.firmas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 50px;
+  margin-top: 65px;
+  text-align: center;
+}
+.firma {
+  border-top: 1px solid #475569;
+  padding-top: 8px;
+}
+footer {
+  margin-top: 25px;
+  color: #64748b;
+  font-size: 10px;
+  text-align: center;
+}
+@media print {
+  .no-print { display: none !important; }
+}
 </style>
 </head>
 <body>
 <header>
-  <span class="folio">Folio: ${escapar(item.folio || `REG-${item.id}`)}</span>
+  <span class="folio">
+    Folio: ${escapar(item.folio || (item.id ? `REG-${item.id}` : 'Pendiente'))}
+  </span>
   <h1>Formato de ingreso / recepción de equipo</h1>
   <p class="sub">Sistema de Gestión IT</p>
 </header>
@@ -95,7 +142,9 @@ footer { margin-top: 25px; color: #64748b; font-size: 10px; text-align: center; 
 <div class="grid">
   <div class="campo">
     <div class="etiqueta">Fecha de ingreso</div>
-    <div class="valor">${escapar(fechaLocal(item.fechaIngreso || item.fechaRegistro))}</div>
+    <div class="valor">
+      ${escapar(fechaLocal(item.fechaIngreso || item.fechaRegistro || new Date().toISOString()))}
+    </div>
   </div>
   <div class="campo">
     <div class="etiqueta">Tienda / sucursal</div>
@@ -105,43 +154,77 @@ footer { margin-top: 25px; color: #64748b; font-size: 10px; text-align: center; 
 
 <h2>Datos del equipo</h2>
 <div class="grid">
-  <div class="campo"><div class="etiqueta">Nombre del equipo</div><div class="valor">${escapar(texto(item.nombreEquipo))}</div></div>
-  <div class="campo"><div class="etiqueta">Tipo</div><div class="valor">${escapar(texto(item.tipoEquipo))}</div></div>
-  <div class="campo"><div class="etiqueta">Marca</div><div class="valor">${escapar(texto(item.marca))}</div></div>
-  <div class="campo"><div class="etiqueta">Modelo</div><div class="valor">${escapar(texto(item.modelo))}</div></div>
-  <div class="campo"><div class="etiqueta">Número de serie</div><div class="valor">${escapar(texto(item.serie))}</div></div>
-  <div class="campo"><div class="etiqueta">Código interno</div><div class="valor">${escapar(texto(item.codigoInterno))}</div></div>
+  <div class="campo">
+    <div class="etiqueta">Nombre del equipo</div>
+    <div class="valor">${escapar(item.nombreEquipo || 'No indicado')}</div>
+  </div>
+  <div class="campo">
+    <div class="etiqueta">Tipo</div>
+    <div class="valor">${escapar(item.tipoEquipo || 'No indicado')}</div>
+  </div>
+  <div class="campo">
+    <div class="etiqueta">Marca</div>
+    <div class="valor">${escapar(item.marca || 'No indicada')}</div>
+  </div>
+  <div class="campo">
+    <div class="etiqueta">Modelo</div>
+    <div class="valor">${escapar(item.modelo || 'No indicado')}</div>
+  </div>
+  <div class="campo">
+    <div class="etiqueta">Número de serie</div>
+    <div class="valor">${escapar(item.serie || 'No indicada')}</div>
+  </div>
+  <div class="campo">
+    <div class="etiqueta">Código interno</div>
+    <div class="valor">${escapar(item.codigoInterno || 'No indicado')}</div>
+  </div>
 </div>
 
 <h2>Condiciones de recepción</h2>
 <div class="grid">
-  <div class="campo ancho"><div class="etiqueta">Estado físico</div><div class="valor">${escapar(texto(item.estadoFisico))}</div></div>
-  <div class="campo ancho"><div class="etiqueta">Accesorios incluidos</div><div class="valor">${escapar(texto(item.accesorios))}</div></div>
-  <div class="campo ancho"><div class="etiqueta">Falla reportada</div><div class="valor">${escapar(texto(item.fallaReportada))}</div></div>
+  <div class="campo ancho">
+    <div class="etiqueta">Estado físico</div>
+    <div class="valor">${escapar(item.estadoFisico || 'No indicado')}</div>
+  </div>
+  <div class="campo ancho">
+    <div class="etiqueta">Accesorios incluidos</div>
+    <div class="valor">${escapar(item.accesorios || 'No indicados')}</div>
+  </div>
+  <div class="campo ancho">
+    <div class="etiqueta">Falla reportada</div>
+    <div class="valor">${escapar(item.fallaReportada || 'No indicada')}</div>
+  </div>
 </div>
 
 <div class="firmas">
   <div class="firma">Firma de quien entrega</div>
   <div class="firma">Firma de quien recibe</div>
 </div>
-
 <footer>Formato generado desde el Sistema de Gestión IT.</footer>
-<script>
-window.onload = () => setTimeout(() => window.print(), 300);
-</script>
 </body>
 </html>`;
 
   ventana.document.open();
   ventana.document.write(html);
   ventana.document.close();
+
+  if (imprimir) {
+    setTimeout(() => {
+      if (!ventana.closed) {
+        ventana.focus();
+        ventana.print();
+      }
+    }, 700);
+  }
 }
 
 export default function FormatoIngreso() {
-  const [form, setForm] = useState(formularioInicial);
+  const [form, setForm] = useState({ ...formularioInicial });
   const [tiendas, setTiendas] = useState([]);
   const [registros, setRegistros] = useState([]);
   const [busqueda, setBusqueda] = useState('');
+  const [registroSeleccionadoId, setRegistroSeleccionadoId] = useState('');
+  const [editandoId, setEditandoId] = useState(null);
   const [mensaje, setMensaje] = useState('');
   const [error, setError] = useState('');
   const [cargando, setCargando] = useState(false);
@@ -170,17 +253,87 @@ export default function FormatoIngreso() {
     cargarRegistros();
 
     httpClient.get('/tiendas')
-      .then((respuesta) => {
-        setTiendas(obtenerLista(respuesta.data));
-      })
-      .catch(() => {
-        setTiendas([]);
-      });
+      .then((respuesta) => setTiendas(obtenerLista(respuesta.data)))
+      .catch(() => setTiendas([]));
   }, [cargarRegistros]);
 
   function cambiarCampo(event) {
     const { name, value } = event.target;
     setForm((anterior) => ({ ...anterior, [name]: value }));
+  }
+
+  function obtenerDatosDelFormulario() {
+    const tienda = tiendas.find(
+      (t) => String(t.id) === String(form.tiendaId)
+    );
+
+    return {
+      id: editandoId,
+      folio: editandoId
+        ? registros.find((r) => String(r.id) === String(editandoId))?.folio
+        : 'Vista previa',
+      fechaIngreso: new Date().toISOString(),
+      tiendaId: form.tiendaId,
+      tiendaNombre: tienda?.nombre || '',
+      tiendaCodigo: tienda?.codigo || '',
+      codigoInterno: form.codigoInterno,
+      nombreEquipo: form.nombreEquipo,
+      tipoEquipo: form.tipoEquipo,
+      marca: form.marca,
+      modelo: form.modelo,
+      serie: form.serie,
+      estadoFisico: form.estadoFisico,
+      accesorios: form.accesorios,
+      fallaReportada: form.fallaReportada
+    };
+  }
+
+  function cargarParaEditar() {
+    if (!registroSeleccionadoId) {
+      setError('Selecciona un formato registrado para editar.');
+      return;
+    }
+
+    const item = registros.find(
+      (r) => String(r.id) === String(registroSeleccionadoId)
+    );
+
+    if (!item) {
+      setError('No se encontró el formato seleccionado.');
+      return;
+    }
+
+    setEditandoId(item.id);
+    setForm({
+      tiendaId: item.tiendaId == null ? '' : String(item.tiendaId),
+      codigoInterno: item.codigoInterno || '',
+      nombreEquipo: item.nombreEquipo || '',
+      tipoEquipo: item.tipoEquipo || 'CPU',
+      marca: item.marca || '',
+      modelo: item.modelo || '',
+      serie: item.serie || '',
+      estadoFisico: item.estadoFisico || '',
+      accesorios: item.accesorios || '',
+      fallaReportada: item.fallaReportada || ''
+    });
+
+    setError('');
+    setMensaje(`Formato ${item.folio || item.id} cargado para edición.`);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function cancelarEdicion() {
+    setEditandoId(null);
+    setForm({ ...formularioInicial });
+    setError('');
+    setMensaje('Edición cancelada.');
+  }
+
+  function limpiarFormulario() {
+    setEditandoId(null);
+    setForm({ ...formularioInicial });
+    setError('');
+    setMensaje('');
   }
 
   async function guardar(event) {
@@ -198,7 +351,7 @@ export default function FormatoIngreso() {
       !form.fallaReportada.trim()
     ) {
       setError(
-        'Completa tienda, nombre, tipo, marca, serie, estado físico y falla reportada.'
+        'Completa tienda, nombre del equipo, tipo, marca, serie, estado físico y falla reportada.'
       );
       return;
     }
@@ -219,16 +372,23 @@ export default function FormatoIngreso() {
     setGuardando(true);
 
     try {
-      const respuesta = await httpClient.post('/formatos/ingreso', datos);
+      const respuesta = editandoId
+        ? await httpClient.put(`/formatos/ingreso/${editandoId}`, datos)
+        : await httpClient.post('/formatos/ingreso', datos);
 
       const folio = respuesta.data?.folio;
+
       setMensaje(
-        `${respuesta.data?.mensaje || 'Formato guardado correctamente.'}${
-          folio ? ` Folio: ${folio}.` : ''
-        }`
+        `${respuesta.data?.mensaje ||
+          (editandoId
+            ? 'Formato actualizado correctamente.'
+            : 'Formato guardado correctamente.')}${folio ? ` Folio: ${folio}.` : ''}`
       );
 
-      setForm(formularioInicial);
+      setForm({ ...formularioInicial });
+      setEditandoId(null);
+      setRegistroSeleccionadoId('');
+
       await cargarRegistros();
     } catch (err) {
       setError(
@@ -252,7 +412,9 @@ export default function FormatoIngreso() {
       item.codigoInterno,
       item.tiendaNombre,
       item.tiendaCodigo
-    ].some((valor) => String(valor ?? '').toLowerCase().includes(filtro))
+    ].some((valor) =>
+      String(valor ?? '').toLowerCase().includes(filtro)
+    )
   );
 
   return (
@@ -262,15 +424,24 @@ export default function FormatoIngreso() {
           <div>
             <p className="formato-kicker">RECEPCIÓN DE EQUIPO</p>
             <h1>Formato de ingreso de equipo</h1>
-            <p>Completa los datos y guarda el comprobante en el sistema.</p>
+            <p>
+              Completa los datos y guarda, visualiza o imprime el formato.
+            </p>
           </div>
         </div>
 
-        {mensaje && <div className="fi-alert fi-alert-success">{mensaje}</div>}
-        {error && <div className="fi-alert fi-alert-error">{error}</div>}
+        {mensaje && (
+          <div className="fi-alert fi-alert-success">{mensaje}</div>
+        )}
+
+        {error && (
+          <div className="fi-alert fi-alert-error">{error}</div>
+        )}
 
         <form onSubmit={guardar}>
-          <h2>Datos generales</h2>
+          <h2>
+            {editandoId ? `Editando formato ${editandoId}` : 'Datos generales'}
+          </h2>
 
           <div className="fi-form-grid">
             <label>
@@ -289,7 +460,9 @@ export default function FormatoIngreso() {
                 ))}
               </select>
               {tiendas.length === 0 && (
-                <small>No hay tiendas disponibles. Verifica el endpoint GET /tiendas.</small>
+                <small>
+                  No hay tiendas disponibles. Verifica el endpoint GET /tiendas.
+                </small>
               )}
             </label>
 
@@ -372,7 +545,7 @@ export default function FormatoIngreso() {
 
           <div className="fi-form-grid">
             <label className="fi-full">
-              Estado físico del equipo *
+              Estado físico *
               <textarea
                 name="estadoFisico"
                 value={form.estadoFisico}
@@ -409,20 +582,83 @@ export default function FormatoIngreso() {
             </label>
           </div>
 
+          <h2>Guardar, editar e imprimir</h2>
+
+          <div className="fi-form-grid">
+            <label className="fi-full">
+              Seleccionar un formato existente para editar
+              <select
+                value={registroSeleccionadoId}
+                onChange={(event) => setRegistroSeleccionadoId(event.target.value)}
+              >
+                <option value="">Selecciona un formato registrado</option>
+                {registros.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.folio || `REG-${item.id}`} — {item.nombreEquipo || 'Equipo'} — {item.serie || 'Sin serie'}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
           <div className="fi-actions">
             <button
               className="fi-btn fi-btn-primary"
               type="submit"
               disabled={guardando || tiendas.length === 0}
             >
-              {guardando ? 'Guardando...' : 'Guardar formato'}
+              {guardando
+                ? 'Guardando...'
+                : editandoId
+                  ? 'Guardar cambios'
+                  : 'Guardar formato'}
             </button>
 
             <button
               className="fi-btn fi-btn-light"
               type="button"
-              onClick={() => setForm(formularioInicial)}
-              disabled={guardando}
+              onClick={() => {
+                setError('');
+                abrirFormato(obtenerDatosDelFormulario(), false);
+              }}
+            >
+              📄 Ver PDF
+            </button>
+
+            <button
+              className="fi-btn fi-btn-light"
+              type="button"
+              onClick={() => {
+                setError('');
+                abrirFormato(obtenerDatosDelFormulario(), true);
+              }}
+            >
+              🖨️ Imprimir
+            </button>
+
+            <button
+              className="fi-btn fi-btn-light"
+              type="button"
+              onClick={cargarParaEditar}
+              disabled={!registroSeleccionadoId}
+            >
+              ✏️ Editar seleccionado
+            </button>
+
+            {editandoId && (
+              <button
+                className="fi-btn fi-btn-light"
+                type="button"
+                onClick={cancelarEdicion}
+              >
+                Cancelar edición
+              </button>
+            )}
+
+            <button
+              className="fi-btn fi-btn-light"
+              type="button"
+              onClick={limpiarFormulario}
             >
               Limpiar formulario
             </button>
@@ -434,7 +670,7 @@ export default function FormatoIngreso() {
         <div className="fi-list-heading">
           <div>
             <h2>Formatos registrados</h2>
-            <p>Los registros guardados en la base de datos aparecerán aquí.</p>
+            <p>Consulta los formatos guardados en el sistema.</p>
           </div>
 
           <button
@@ -460,7 +696,7 @@ export default function FormatoIngreso() {
           <p>Cargando registros...</p>
         ) : registrosFiltrados.length === 0 ? (
           <p className="fi-empty">
-            No hay formatos para mostrar. Después de guardar uno, actualiza esta lista.
+            No hay formatos para mostrar. Guarda uno o actualiza la lista.
           </p>
         ) : (
           <div className="fi-table-wrap">
@@ -475,10 +711,13 @@ export default function FormatoIngreso() {
                   <th>Acciones</th>
                 </tr>
               </thead>
+
               <tbody>
                 {registrosFiltrados.map((item) => (
                   <tr key={item.id}>
-                    <td><strong>{item.folio || `REG-${item.id}`}</strong></td>
+                    <td>
+                      <strong>{item.folio || `REG-${item.id}`}</strong>
+                    </td>
                     <td>
                       {item.nombreEquipo || 'Equipo'}
                       <small>{item.serie || 'Sin serie'}</small>
@@ -488,16 +727,58 @@ export default function FormatoIngreso() {
                         .filter(Boolean)
                         .join(' - ') || item.tiendaId || '—'}
                     </td>
-                    <td>{fechaLocal(item.fechaIngreso || item.fechaRegistro)}</td>
-                    <td><span className="fi-status">{item.estado || 'Registrado'}</span></td>
                     <td>
-                      <button
-                        type="button"
-                        className="fi-link"
-                        onClick={() => imprimirFormato(item)}
-                      >
-                        Imprimir / Guardar PDF
-                      </button>
+                      {fechaLocal(item.fechaIngreso || item.fechaRegistro)}
+                    </td>
+                    <td>
+                      <span className="fi-status">
+                        {item.estado || 'Registrado'}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="fi-row-actions">
+                        <button
+                          type="button"
+                          className="fi-action-btn fi-action-edit"
+                          onClick={() => {
+                            setRegistroSeleccionadoId(String(item.id));
+                            setEditandoId(item.id);
+                            setForm({
+                              tiendaId: item.tiendaId == null ? '' : String(item.tiendaId),
+                              codigoInterno: item.codigoInterno || '',
+                              nombreEquipo: item.nombreEquipo || '',
+                              tipoEquipo: item.tipoEquipo || 'CPU',
+                              marca: item.marca || '',
+                              modelo: item.modelo || '',
+                              serie: item.serie || '',
+                              estadoFisico: item.estadoFisico || '',
+                              accesorios: item.accesorios || '',
+                              fallaReportada: item.fallaReportada || ''
+                            });
+                            setError('');
+                            setMensaje(`Formato ${item.folio || item.id} cargado para edición.`);
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}
+                        >
+                          ✏️ Editar
+                        </button>
+
+                        <button
+                          type="button"
+                          className="fi-action-btn fi-action-pdf"
+                          onClick={() => abrirFormato(item, false)}
+                        >
+                          📄 Ver PDF
+                        </button>
+
+                        <button
+                          type="button"
+                          className="fi-action-btn fi-action-print"
+                          onClick={() => abrirFormato(item, true)}
+                        >
+                          🖨️ Imprimir
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
