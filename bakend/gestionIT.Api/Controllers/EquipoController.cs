@@ -5,7 +5,7 @@ using Microsoft.Data.SqlClient;
 namespace gestionIT.Api.Controllers;
 
 [ApiController]
-[Authorize(Policy = "AdminIT")]
+[Authorize(Policy = "TecnicoIT")]
 [Route("api/v1/equipos")]
 public class EquipoController : ControllerBase
 {

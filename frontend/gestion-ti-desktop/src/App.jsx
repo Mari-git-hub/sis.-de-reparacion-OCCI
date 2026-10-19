@@ -1,3 +1,4 @@
+
 import {
   BrowserRouter,
   Routes,
@@ -19,42 +20,45 @@ import AlertasInsumos from './pages/AlertaInsumos';
 import Inventario from './pages/Inventario';
 import Reparaciones from './pages/Reparaciones';
 import ReportesFormatos from './pages/ReportesFormatos';
-//import Tableros from './pages/Tableros';
 import Usuarios from './pages/Usuario';
 
-// NUEVOS FORMULARIOS DE REGISTRO
 import RegistrarInsumo from './pages/RegistrarInsumo';
 import RegistrarEquipo from './pages/RegistrarEquipo';
 
 import './App.css';
 
+const ROL_SOLICITANTE = 'Solicitante';
+const ROLES_TECNICOS = ['Admin IT', 'Técnico IT'];
 
-// ============================================================
-// RUTA PROTEGIDA
-// ============================================================
+function obtenerInicio(usuario) {
+  if (!usuario) return '/login';
+
+  return usuario.rol === ROL_SOLICITANTE
+    ? '/ingreso'
+    : '/inventario';
+}
+
 function RutaProtegida({ children, roles = null }) {
-  const auth = useAuth();
-  const usuario = auth?.usuario;
+  const { usuario } = useAuth();
 
-  // Comprobar si el usuario inició sesión
   if (!usuario) {
-    return (
-      <Navigate
-        to="/login"
-        replace
-      />
-    );
+    return <Navigate to="/login" replace />;
   }
 
-  // Comprobar los permisos por rol
+  // El solicitante solo puede entrar a Ingreso y Alertas.
   if (
-    roles &&
-    roles.length > 0 &&
-    !roles.includes(usuario.rol)
+    usuario.rol === ROL_SOLICITANTE &&
+    !['/ingreso', '/alertas'].includes(
+      window.location.pathname
+    )
   ) {
+    return <Navigate to="/ingreso" replace />;
+  }
+
+  if (roles && !roles.includes(usuario.rol)) {
     return (
       <Navigate
-        to="/inventario"
+        to={obtenerInicio(usuario)}
         replace
       />
     );
@@ -63,166 +67,131 @@ function RutaProtegida({ children, roles = null }) {
   return children;
 }
 
+function Inicio() {
+  const { usuario } = useAuth();
 
-// ============================================================
-// APLICACIÓN PRINCIPAL
-// ============================================================
+  return (
+    <Navigate
+      to={obtenerInicio(usuario)}
+      replace
+    />
+  );
+}
+
+function AplicacionRutas() {
+  const { usuario } = useAuth();
+
+  return (
+    <>
+      <Navbar />
+
+      <main className="contenido-principal">
+        <Routes>
+          <Route path="/login" element={<Login />} />
+
+          <Route
+            path="/inventario"
+            element={
+              <RutaProtegida roles={ROLES_TECNICOS}>
+                <Inventario />
+              </RutaProtegida>
+            }
+          />
+
+          <Route
+            path="/inventario/registrar-insumo"
+            element={
+              <RutaProtegida roles={ROLES_TECNICOS}>
+                <RegistrarInsumo />
+              </RutaProtegida>
+            }
+          />
+
+          <Route
+            path="/inventario/registrar-equipo"
+            element={
+              <RutaProtegida roles={ROLES_TECNICOS}>
+                <RegistrarEquipo />
+              </RutaProtegida>
+            }
+          />
+
+          <Route
+            path="/reparaciones"
+            element={
+              <RutaProtegida roles={ROLES_TECNICOS}>
+                <Reparaciones />
+              </RutaProtegida>
+            }
+          />
+
+          <Route
+            path="/ingreso"
+            element={
+              <RutaProtegida>
+                <FormatoIngreso />
+              </RutaProtegida>
+            }
+          />
+
+          <Route
+            path="/salida"
+            element={
+              <RutaProtegida roles={ROLES_TECNICOS}>
+                <FormatoSalida />
+              </RutaProtegida>
+            }
+          />
+
+          <Route
+            path="/alertas"
+            element={
+              <RutaProtegida>
+                <AlertasInsumos />
+              </RutaProtegida>
+            }
+          />
+
+          <Route
+            path="/reportes"
+            element={
+              <RutaProtegida roles={ROLES_TECNICOS}>
+                <ReportesFormatos />
+              </RutaProtegida>
+            }
+          />
+
+          <Route
+            path="/usuarios"
+            element={
+              <RutaProtegida roles={['Admin IT']}>
+                <Usuarios />
+              </RutaProtegida>
+            }
+          />
+
+          <Route path="/" element={<Inicio />} />
+
+          <Route
+            path="*"
+            element={
+              <Navigate
+                to={obtenerInicio(usuario)}
+                replace
+              />
+            }
+          />
+        </Routes>
+      </main>
+    </>
+  );
+}
+
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-
-        <Navbar />
-
-        <main className="contenido-principal">
-          <Routes>
-
-            {/* ================================================
-                INICIO DE SESIÓN
-            ================================================ */}
-            <Route
-              path="/login"
-              element={<Login />}
-            />
-
-            {/* ================================================
-                INVENTARIO GENERAL
-            ================================================ */}
-            <Route
-              path="/inventario"
-              element={
-                <RutaProtegida>
-                  <Inventario />
-                </RutaProtegida>
-              }
-            />
-
-            {/* ================================================
-                NUEVO: REGISTRAR INSUMO
-            ================================================ */}
-            <Route
-              path="/inventario/registrar-insumo"
-              element={
-                <RutaProtegida>
-                  <RegistrarInsumo />
-                </RutaProtegida>
-              }
-            />
-
-            {/* ================================================
-                NUEVO: REGISTRAR EQUIPO
-            ================================================ */}
-            <Route
-              path="/inventario/registrar-equipo"
-              element={
-                <RutaProtegida>
-                  <RegistrarEquipo />
-                </RutaProtegida>
-              }
-            />
-
-            {/* ================================================
-                REPARACIONES
-            ================================================ */}
-            <Route
-              path="/reparaciones"
-              element={
-                <RutaProtegida>
-                  <Reparaciones />
-                </RutaProtegida>
-              }
-            />
-
-            {/* ================================================
-                FORMATO DE INGRESO EXISTENTE
-            ================================================ */}
-            <Route
-              path="/ingreso"
-              element={
-                <RutaProtegida>
-                  <FormatoIngreso />
-                </RutaProtegida>
-              }
-            />
-
-            {/* ================================================
-                FORMATO DE SALIDA EXISTENTE
-            ================================================ */}
-            <Route
-              path="/salida"
-              element={
-                <RutaProtegida>
-                  <FormatoSalida />
-                </RutaProtegida>
-              }
-            />
-
-            {/* ================================================
-                ALERTAS DE INSUMOS
-            ================================================ */}
-            <Route
-              path="/alertas"
-              element={
-                <RutaProtegida>
-                  <AlertasInsumos />
-                </RutaProtegida>
-              }
-            />
-
-            {/* ================================================
-                REPORTES
-            ================================================ */}
-            <Route
-              path="/reportes"
-              element={
-                <RutaProtegida>
-                  <ReportesFormatos />
-                </RutaProtegida>
-              }
-            />
-
-            {/* ================================================
-                ADMINISTRACIÓN DE USUARIOS
-                SOLO ADMIN IT
-            ================================================ */}
-            <Route
-              path="/usuarios"
-              element={
-                <RutaProtegida roles={['Admin IT']}>
-                  <Usuarios />
-                </RutaProtegida>
-              }
-            />
-
-            {/* ================================================
-                RUTA INICIAL
-            ================================================ */}
-            <Route
-              path="/"
-              element={
-                <Navigate
-                  to="/inventario"
-                  replace
-                />
-              }
-            />
-
-            {/* ================================================
-                RUTAS NO ENCONTRADAS
-            ================================================ */}
-            <Route
-              path="*"
-              element={
-                <Navigate
-                  to="/inventario"
-                  replace
-                />
-              }
-            />
-
-          </Routes>
-        </main>
-
+        <AplicacionRutas />
       </BrowserRouter>
     </AuthProvider>
   );

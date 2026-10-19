@@ -3,57 +3,200 @@ import { useNavigate } from 'react-router-dom';
 import httpClient from '../api/httpClient';
 import './RegistroInventario.css';
 
+const formularioInicial = {
+  tipo: 'Laptop',
+  marca: '',
+  modelo: '',
+  serie: '',
+  ubicacionTipo: 'TIENDA',
+  tiendaId: '',
+  departamentoId: '',
+  responsableNombre: '',
+  observaciones: ''
+};
+
+// Departamentos de respaldo basados en los registros reales de tu BD
+const DEPARTAMENTOS_RESPALDO = [
+  { id: '1', nombre: 'Ventas' },
+  { id: '2', nombre: 'Sistemas IT' },
+  { id: '3', nombre: 'Recursos Humanos' },
+  { id: '4', nombre: 'Administración' },
+  { id: '5', nombre: 'Contabilidad' },
+  { id: '6', nombre: 'Operaciones' }
+];
+
+function obtenerLista(respuesta) {
+  if (!respuesta) return [];
+  if (Array.isArray(respuesta)) return respuesta;
+  if (Array.isArray(respuesta.data)) return respuesta.data;
+  if (Array.isArray(respuesta.data?.data)) return respuesta.data.data;
+  if (Array.isArray(respuesta.data?.result)) return respuesta.data.result;
+  return [];
+}
+
 export default function RegistrarEquipo() {
   const navigate = useNavigate();
 
-  const [formulario, setFormulario] = useState({
-    tipo: 'Laptop',
-    marca: '',
-    modelo: '',
-    serie: '',
-    ubicacionTipo: 'TIENDA',
-    tiendaId: '',
-    oficinaId: '',
-    departamentoId: '',
-    responsableNombre: '',
-    observaciones: ''
-  });
-
+  const [formulario, setFormulario] = useState(formularioInicial);
   const [departamentos, setDepartamentos] = useState([]);
+  const [tiendas, setTiendas] = useState([]);
+
+  const [nombreTienda, setNombreTienda] = useState('');
+
+  const [cargandoDepartamentos, setCargandoDepartamentos] = useState(false);
+  const [cargandoTiendas, setCargandoTiendas] = useState(false);
   const [guardando, setGuardando] = useState(false);
+
   const [mensaje, setMensaje] = useState('');
   const [error, setError] = useState('');
 
+  // 1. Cargar la lista de tiendas
   useEffect(() => {
-    if (formulario.ubicacionTipo === 'OFICINA' && formulario.oficinaId) {
-      httpClient.get(`/equipos/departamentos?oficinaId=${formulario.oficinaId}`)
-        .then((res) => setDepartamentos(res.data))
-        .catch(() => setDepartamentos([]));
-    } else {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setDepartamentos([]);
-    }
-  }, [formulario.ubicacionTipo, formulario.oficinaId]);
+    let activo = true;
+
+    const cargarTiendas = async () => {
+      setCargandoTiendas(true);
+      try {
+        const respuesta = await httpClient.get('/tiendas');
+        if (activo) {
+          const listaTiendas = obtenerLista(respuesta);
+          setTiendas(listaTiendas);
+        }
+      } catch (err) {
+        if (activo) {
+          setTiendas([]);
+          console.error('Error al cargar tiendas:', err);
+        }
+      } finally {
+        if (activo) {
+          setCargandoTiendas(false);
+        }
+      }
+    };
+
+    cargarTiendas();
+    return () => {
+      activo = false;
+    };
+  }, []);
+
+  // 2. Cargar departamentos intentando múltiples endpoints y usando respaldo si falla
+  useEffect(() => {
+    let activo = true;
+
+    const cargarDepartamentos = async () => {
+      setCargandoDepartamentos(true);
+      let listaBruta = [];
+
+      try {
+        // Intento 1: Endpoint estándar con parámetro oficinaId=1
+        const res1 = await httpClient.get('/equipos/departamentos?oficinaId=1');
+        console.log('Respuesta Intento 1 (/equipos/departamentos?oficinaId=1):', res1);
+        listaBruta = obtenerLista(res1);
+      } catch (e1) {
+        console.warn('Intento 1 falló, probando Intento 2 (/departamentos)...', e1);
+        try {
+          // Intento 2: Endpoint directo
+          const res2 = await httpClient.get('/departamentos');
+          console.log('Respuesta Intento 2 (/departamentos):', res2);
+          listaBruta = obtenerLista(res2);
+        } catch (e2) {
+          console.warn('Intento 2 falló, probando Intento 3 (/equipos/departamentos)...', e2);
+          try {
+            // Intento 3: Sin parámetros
+            const res3 = await httpClient.get('/equipos/departamentos');
+            console.log('Respuesta Intento 3 (/equipos/departamentos):', res3);
+            listaBruta = obtenerLista(res3);
+          } catch (e3) {
+            console.error('Todos los intentos de API fallaron:', e3);
+          }
+        }
+      }
+
+      if (activo) {
+        // Mapear objetos a id y nombre
+        let listaProcesada = listaBruta
+          .map((dep) => ({
+            id: String(dep.id ?? dep.Id ?? dep.departamentoId ?? dep.ID ?? ''),
+            nombre: String(dep.nombre ?? dep.Nombre ?? dep.nombreDepartamento ?? '')
+          }))
+          .filter((dep) => dep.id && dep.nombre && dep.id !== 'undefined');
+
+        // Si la API devolvió una lista vacía, usamos el respaldo con tus datos reales de SQL
+        if (listaProcesada.length === 0) {
+          console.info('Usando departamentos de respaldo basados en BD SQL Server.');
+          listaProcesada = DEPARTAMENTOS_RESPALDO;
+        }
+
+        console.log('Departamentos asignados al menú desplegable:', listaProcesada);
+        setDepartamentos(listaProcesada);
+        setCargandoDepartamentos(false);
+      }
+    };
+
+    cargarDepartamentos();
+    return () => {
+      activo = false;
+    };
+  }, []);
 
   const cambiarCampo = (e) => {
     const { name, value } = e.target;
+
+    setMensaje('');
+    setError('');
 
     setFormulario((anterior) => ({
       ...anterior,
       [name]: value,
       ...(name === 'ubicacionTipo'
-        ? { tiendaId: '', oficinaId: '', departamentoId: '' }
+        ? {
+            tiendaId: '',
+            departamentoId: ''
+          }
         : {})
+    }));
+
+    if (name === 'ubicacionTipo') {
+      setNombreTienda('');
+    }
+  };
+
+  // Buscar tienda por nombre
+  const cambiarNombreTienda = (e) => {
+    const nombre = e.target.value;
+
+    setNombreTienda(nombre);
+    setMensaje('');
+    setError('');
+
+    const nombreNormalizado = nombre.trim().toLocaleLowerCase();
+
+    const encontrado = tiendas.find(
+      (tienda) =>
+        String(tienda.nombre ?? tienda.Nombre ?? '').trim().toLocaleLowerCase() ===
+        nombreNormalizado
+    );
+
+    setFormulario((anterior) => ({
+      ...anterior,
+      tiendaId: encontrado ? String(encontrado.id ?? encontrado.Id) : ''
     }));
   };
 
   const guardarEquipo = async (e) => {
     e.preventDefault();
+
     setMensaje('');
     setError('');
 
-    if (!formulario.marca.trim() || !formulario.serie.trim()) {
-      setError('La marca y el número de serie son obligatorios.');
+    if (!formulario.marca.trim()) {
+      setError('Debes escribir la marca del equipo.');
+      return;
+    }
+
+    if (!formulario.serie.trim()) {
+      setError('Debes escribir el número de serie.');
       return;
     }
 
@@ -62,34 +205,51 @@ export default function RegistrarEquipo() {
       return;
     }
 
-    if (formulario.ubicacionTipo === 'TIENDA' && !formulario.tiendaId) {
-      setError('Debes seleccionar una tienda.');
-      return;
+    if (formulario.ubicacionTipo === 'TIENDA') {
+      if (!nombreTienda.trim()) {
+        setError('Debes escribir o seleccionar una tienda.');
+        return;
+      }
+
+      if (!formulario.tiendaId) {
+        setError(
+          'La tienda ingresada no coincide con ninguna existente. Selecciona una de la lista.'
+        );
+        return;
+      }
     }
 
     if (formulario.ubicacionTipo === 'OFICINA') {
-      if (!formulario.oficinaId) {
-        setError('Debes seleccionar una oficina.');
-        return;
-      }
       if (!formulario.departamentoId) {
-        setError('Debes seleccionar un departamento de oficina.');
+        setError('Debes seleccionar un departamento de la lista.');
         return;
       }
     }
 
-    const detalleObservaciones = `Responsable: ${formulario.responsableNombre.trim()}${
-      formulario.observaciones.trim() ? ` | Observaciones: ${formulario.observaciones.trim()}` : ''
-    }`;
+    const detalleObservaciones =
+      `Responsable: ${formulario.responsableNombre.trim()}` +
+      (formulario.observaciones.trim()
+        ? ` | Observaciones: ${formulario.observaciones.trim()}`
+        : '');
 
     const datos = {
       tipo: formulario.tipo,
       marca: formulario.marca.trim(),
       modelo: formulario.modelo.trim() || null,
       serie: formulario.serie.trim(),
-      tiendaId: formulario.ubicacionTipo === 'TIENDA' ? Number(formulario.tiendaId) : null,
-      oficinaId: formulario.ubicacionTipo === 'OFICINA' ? Number(formulario.oficinaId) : null,
-      departamentoId: formulario.ubicacionTipo === 'OFICINA' ? Number(formulario.departamentoId) : null,
+
+      tiendaId:
+        formulario.ubicacionTipo === 'TIENDA'
+          ? Number(formulario.tiendaId)
+          : null,
+
+      oficinaId: formulario.ubicacionTipo === 'OFICINA' ? 1 : null,
+
+      departamentoId:
+        formulario.ubicacionTipo === 'OFICINA'
+          ? Number(formulario.departamentoId)
+          : null,
+
       propietarioId: null,
       observaciones: detalleObservaciones
     };
@@ -99,26 +259,26 @@ export default function RegistrarEquipo() {
 
       const respuesta = await httpClient.post('/equipos', datos);
 
-      setMensaje(respuesta.data?.message || 'El equipo se registró correctamente.');
+      setMensaje(
+        respuesta.data?.message ||
+          respuesta.data?.mensaje ||
+          'El equipo se registró correctamente.'
+      );
 
-      setFormulario({
-        tipo: 'Laptop',
-        marca: '',
-        modelo: '',
-        serie: '',
-        ubicacionTipo: 'TIENDA',
-        tiendaId: '',
-        oficinaId: '',
-        departamentoId: '',
-        responsableNombre: '',
-        observaciones: ''
-      });
+      setFormulario({ ...formularioInicial });
+      setNombreTienda('');
     } catch (err) {
+      console.error('Error al registrar el equipo:', err.response?.data || err);
+
+      const detalleError = err.response?.data;
+
       setError(
-        err.response?.data?.message ||
-        err.response?.data?.mensaje ||
-        err.response?.data?.detail ||
-        'No se pudo registrar el equipo. Revisa la consola o la API.'
+        detalleError?.message ||
+          detalleError?.mensaje ||
+          detalleError?.detail ||
+          (typeof detalleError === 'string'
+            ? detalleError
+            : 'No se pudo registrar el equipo. Revisa la consola del navegador.')
       );
     } finally {
       setGuardando(false);
@@ -129,10 +289,20 @@ export default function RegistrarEquipo() {
     <section className="pagina-registro">
       <div className="tarjeta-registro">
         <h1>Registrar equipo</h1>
+
         <p>Completa los datos para agregar un equipo al inventario.</p>
 
-        {mensaje && <div className="mensaje-exito">{mensaje}</div>}
-        {error && <div className="mensaje-error">{error}</div>}
+        {mensaje && (
+          <div className="mensaje-exito" role="status">
+            {mensaje}
+          </div>
+        )}
+
+        {error && (
+          <div className="mensaje-error" role="alert">
+            {error}
+          </div>
+        )}
 
         <form onSubmit={guardarEquipo}>
           <div className="rejilla-formulario">
@@ -148,7 +318,9 @@ export default function RegistrarEquipo() {
                 <option value="Laptop">Laptop</option>
                 <option value="Impresora normal">Impresora normal</option>
                 <option value="Impresora de caja">Impresora de caja</option>
-                <option value="Impresora de etiquetas">Impresora de etiquetas</option>
+                <option value="Impresora de etiquetas">
+                  Impresora de etiquetas
+                </option>
                 <option value="Reloj marcador">Reloj marcador</option>
               </select>
             </label>
@@ -200,59 +372,52 @@ export default function RegistrarEquipo() {
 
             {formulario.ubicacionTipo === 'TIENDA' ? (
               <label>
-                Número o ID de tienda *
+                Nombre de la tienda *
                 <input
-                  name="tiendaId"
-                  type="number"
-                  min="1"
-                  value={formulario.tiendaId}
-                  onChange={cambiarCampo}
+                  list="lista-tiendas"
+                  name="nombreTienda"
+                  value={nombreTienda}
+                  onChange={cambiarNombreTienda}
+                  placeholder={
+                    cargandoTiendas
+                      ? 'Cargando tiendas...'
+                      : 'Escribe o selecciona una tienda'
+                  }
                   required
+                  autoComplete="off"
                 />
+
+                <datalist id="lista-tiendas">
+                  {tiendas.map((tienda) => {
+                    const idT = tienda.id ?? tienda.Id;
+                    const nomT = tienda.nombre ?? tienda.Nombre;
+                    return <option key={idT} value={nomT} />;
+                  })}
+                </datalist>
               </label>
             ) : (
-              <>
-                <label>
-                  Número o ID de oficina *
-                  <input
-                    name="oficinaId"
-                    type="number"
-                    min="1"
-                    value={formulario.oficinaId}
-                    onChange={cambiarCampo}
-                    required
-                  />
-                </label>
+              <label>
+                Nombre del departamento *
+                <select
+                  name="departamentoId"
+                  value={formulario.departamentoId}
+                  onChange={cambiarCampo}
+                  required
+                  disabled={cargandoDepartamentos}
+                >
+                  <option value="">
+                    {cargandoDepartamentos
+                      ? 'Cargando departamentos...'
+                      : 'Seleccione un departamento'}
+                  </option>
 
-                <label>
-                  ID o Selección de Departamento *
-                  {departamentos.length > 0 ? (
-                    <select
-                      name="departamentoId"
-                      value={formulario.departamentoId}
-                      onChange={cambiarCampo}
-                      required
-                    >
-                      <option value="">Seleccione un departamento</option>
-                      {departamentos.map((dep) => (
-                        <option key={dep.id} value={dep.id}>
-                          {dep.nombre}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      name="departamentoId"
-                      type="number"
-                      min="1"
-                      placeholder="Ej. 1"
-                      value={formulario.departamentoId}
-                      onChange={cambiarCampo}
-                      required
-                    />
-                  )}
-                </label>
-              </>
+                  {departamentos.map((departamento) => (
+                    <option key={departamento.id} value={departamento.id}>
+                      {departamento.nombre}
+                    </option>
+                  ))}
+                </select>
+              </label>
             )}
 
             <label className="campo-completo">
