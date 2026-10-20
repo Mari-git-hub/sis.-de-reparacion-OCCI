@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import httpClient from '../api/httpClient';
@@ -10,20 +11,11 @@ const formularioInicial = {
   serie: '',
   ubicacionTipo: 'TIENDA',
   tiendaId: '',
+  oficinaId: '',
   departamentoId: '',
   responsableNombre: '',
   observaciones: ''
 };
-
-// Departamentos de respaldo basados en los registros reales de tu BD
-const DEPARTAMENTOS_RESPALDO = [
-  { id: '1', nombre: 'Ventas' },
-  { id: '2', nombre: 'Sistemas IT' },
-  { id: '3', nombre: 'Recursos Humanos' },
-  { id: '4', nombre: 'Administración' },
-  { id: '5', nombre: 'Contabilidad' },
-  { id: '6', nombre: 'Operaciones' }
-];
 
 function obtenerLista(respuesta) {
   if (!respuesta) return [];
@@ -39,106 +31,187 @@ export default function RegistrarEquipo() {
 
   const [formulario, setFormulario] = useState(formularioInicial);
   const [departamentos, setDepartamentos] = useState([]);
+  const [oficinas, setOficinas] = useState([]);
   const [tiendas, setTiendas] = useState([]);
-
   const [nombreTienda, setNombreTienda] = useState('');
 
   const [cargandoDepartamentos, setCargandoDepartamentos] = useState(false);
+  const [cargandoOficinas, setCargandoOficinas] = useState(false);
   const [cargandoTiendas, setCargandoTiendas] = useState(false);
   const [guardando, setGuardando] = useState(false);
 
   const [mensaje, setMensaje] = useState('');
   const [error, setError] = useState('');
 
-  // 1. Cargar la lista de tiendas
+  // Cargar tiendas
   useEffect(() => {
     let activo = true;
 
     const cargarTiendas = async () => {
       setCargandoTiendas(true);
+
       try {
         const respuesta = await httpClient.get('/tiendas');
+
         if (activo) {
-          const listaTiendas = obtenerLista(respuesta);
-          setTiendas(listaTiendas);
+          setTiendas(
+            obtenerLista(respuesta).map((tienda) => ({
+              ...tienda,
+              id: String(tienda.id ?? tienda.Id ?? ''),
+              nombre: String(tienda.nombre ?? tienda.Nombre ?? '')
+            }))
+          );
         }
       } catch (err) {
+        console.error('Error al cargar tiendas:', err);
+
         if (activo) {
           setTiendas([]);
-          console.error('Error al cargar tiendas:', err);
+          setError(
+            'No se pudieron cargar las tiendas. Comprueba la API.'
+          );
         }
       } finally {
-        if (activo) {
-          setCargandoTiendas(false);
-        }
+        if (activo) setCargandoTiendas(false);
       }
     };
 
     cargarTiendas();
+
     return () => {
       activo = false;
     };
   }, []);
 
-  // 2. Cargar departamentos intentando múltiples endpoints y usando respaldo si falla
+  // Cargar oficinas reales desde la API
+  useEffect(() => {
+    let activo = true;
+
+    const cargarOficinas = async () => {
+      setCargandoOficinas(true);
+
+      try {
+        const respuesta = await httpClient.get('/equipos/oficinas');
+
+        if (activo) {
+          const lista = obtenerLista(respuesta)
+            .map((oficina) => ({
+              id: String(oficina.id ?? oficina.Id ?? ''),
+              nombre: String(oficina.nombre ?? oficina.Nombre ?? '')
+            }))
+            .filter((oficina) => oficina.id && oficina.nombre);
+
+          setOficinas(lista);
+        }
+      } catch (err) {
+        console.error('Error al cargar oficinas:', err);
+
+        if (activo) {
+          setOficinas([]);
+          setError(
+            'No se pudieron cargar las oficinas. Comprueba la API.'
+          );
+        }
+      } finally {
+        if (activo) setCargandoOficinas(false);
+      }
+    };
+
+    cargarOficinas();
+
+    return () => {
+      activo = false;
+    };
+  }, []);
+
+  // Cargar departamentos de la oficina seleccionada
   useEffect(() => {
     let activo = true;
 
     const cargarDepartamentos = async () => {
-      setCargandoDepartamentos(true);
-      let listaBruta = [];
+      setDepartamentos([]);
 
-      try {
-        // Intento 1: Endpoint estándar con parámetro oficinaId=1
-        const res1 = await httpClient.get('/equipos/departamentos?oficinaId=1');
-        console.log('Respuesta Intento 1 (/equipos/departamentos?oficinaId=1):', res1);
-        listaBruta = obtenerLista(res1);
-      } catch (e1) {
-        console.warn('Intento 1 falló, probando Intento 2 (/departamentos)...', e1);
-        try {
-          // Intento 2: Endpoint directo
-          const res2 = await httpClient.get('/departamentos');
-          console.log('Respuesta Intento 2 (/departamentos):', res2);
-          listaBruta = obtenerLista(res2);
-        } catch (e2) {
-          console.warn('Intento 2 falló, probando Intento 3 (/equipos/departamentos)...', e2);
-          try {
-            // Intento 3: Sin parámetros
-            const res3 = await httpClient.get('/equipos/departamentos');
-            console.log('Respuesta Intento 3 (/equipos/departamentos):', res3);
-            listaBruta = obtenerLista(res3);
-          } catch (e3) {
-            console.error('Todos los intentos de API fallaron:', e3);
-          }
-        }
+      if (
+        formulario.ubicacionTipo !== 'OFICINA' ||
+        !formulario.oficinaId
+      ) {
+        setCargandoDepartamentos(false);
+        return;
       }
 
-      if (activo) {
-        // Mapear objetos a id y nombre
-        let listaProcesada = listaBruta
-          .map((dep) => ({
-            id: String(dep.id ?? dep.Id ?? dep.departamentoId ?? dep.ID ?? ''),
-            nombre: String(dep.nombre ?? dep.Nombre ?? dep.nombreDepartamento ?? '')
-          }))
-          .filter((dep) => dep.id && dep.nombre && dep.id !== 'undefined');
+      setCargandoDepartamentos(true);
 
-        // Si la API devolvió una lista vacía, usamos el respaldo con tus datos reales de SQL
-        if (listaProcesada.length === 0) {
-          console.info('Usando departamentos de respaldo basados en BD SQL Server.');
-          listaProcesada = DEPARTAMENTOS_RESPALDO;
+      try {
+        const respuesta = await httpClient.get(
+          `/equipos/departamentos?oficinaId=${encodeURIComponent(
+            formulario.oficinaId
+          )}`
+        );
+
+        if (activo) {
+          const lista = obtenerLista(respuesta)
+            .map((dep) => ({
+              id: String(
+                dep.id ??
+                dep.Id ??
+                dep.departamentoId ??
+                dep.DepartamentoId ??
+                ''
+              ),
+              nombre: String(
+                dep.nombre ??
+                dep.Nombre ??
+                dep.nombreDepartamento ??
+                ''
+              ),
+              oficinaId:
+                dep.oficinaId ??
+                dep.OficinaId ??
+                dep.oficina_id ??
+                dep.oficinaID ??
+                null
+            }))
+            .filter((dep) => {
+              if (!dep.id || !dep.nombre) return false;
+
+              // Si la API devuelve oficinaId, comprobarlo.
+              // Si no lo devuelve, confiamos en el filtro del endpoint
+              // que recibió el oficinaId seleccionado.
+              return (
+                dep.oficinaId == null ||
+                String(dep.oficinaId) ===
+                  String(formulario.oficinaId)
+              );
+            });
+
+          setDepartamentos(lista);
+
+          if (lista.length === 0) {
+            setError(
+              'Esta oficina no tiene departamentos disponibles en la API. Comprueba los datos y el endpoint.'
+            );
+          }
         }
+      } catch (err) {
+        console.error('Error al cargar departamentos:', err);
 
-        console.log('Departamentos asignados al menú desplegable:', listaProcesada);
-        setDepartamentos(listaProcesada);
-        setCargandoDepartamentos(false);
+        if (activo) {
+          setDepartamentos([]);
+          setError(
+            'No se pudieron cargar los departamentos de esta oficina.'
+          );
+        }
+      } finally {
+        if (activo) setCargandoDepartamentos(false);
       }
     };
 
     cargarDepartamentos();
+
     return () => {
       activo = false;
     };
-  }, []);
+  }, [formulario.ubicacionTipo, formulario.oficinaId]);
 
   const cambiarCampo = (e) => {
     const { name, value } = e.target;
@@ -152,6 +225,12 @@ export default function RegistrarEquipo() {
       ...(name === 'ubicacionTipo'
         ? {
             tiendaId: '',
+            oficinaId: '',
+            departamentoId: ''
+          }
+        : {}),
+      ...(name === 'oficinaId'
+        ? {
             departamentoId: ''
           }
         : {})
@@ -159,10 +238,11 @@ export default function RegistrarEquipo() {
 
     if (name === 'ubicacionTipo') {
       setNombreTienda('');
+      setDepartamentos([]);
     }
   };
 
-  // Buscar tienda por nombre
+  // Buscar tienda por nombre y guardar su ID real
   const cambiarNombreTienda = (e) => {
     const nombre = e.target.value;
 
@@ -172,15 +252,16 @@ export default function RegistrarEquipo() {
 
     const nombreNormalizado = nombre.trim().toLocaleLowerCase();
 
-    const encontrado = tiendas.find(
+    const encontrada = tiendas.find(
       (tienda) =>
-        String(tienda.nombre ?? tienda.Nombre ?? '').trim().toLocaleLowerCase() ===
-        nombreNormalizado
+        String(tienda.nombre ?? '')
+          .trim()
+          .toLocaleLowerCase() === nombreNormalizado
     );
 
     setFormulario((anterior) => ({
       ...anterior,
-      tiendaId: encontrado ? String(encontrado.id ?? encontrado.Id) : ''
+      tiendaId: encontrada ? String(encontrada.id) : ''
     }));
   };
 
@@ -213,15 +294,44 @@ export default function RegistrarEquipo() {
 
       if (!formulario.tiendaId) {
         setError(
-          'La tienda ingresada no coincide con ninguna existente. Selecciona una de la lista.'
+          'La tienda ingresada no coincide con una tienda existente. Selecciona una de la lista.'
         );
         return;
       }
     }
 
     if (formulario.ubicacionTipo === 'OFICINA') {
+      if (!formulario.oficinaId) {
+        setError('Debes seleccionar una oficina.');
+        return;
+      }
+
       if (!formulario.departamentoId) {
-        setError('Debes seleccionar un departamento de la lista.');
+        setError(
+          'Debes seleccionar un departamento de la oficina elegida.'
+        );
+        return;
+      }
+
+      const departamentoSeleccionado = departamentos.find(
+        (dep) => String(dep.id) === String(formulario.departamentoId)
+      );
+
+      if (!departamentoSeleccionado) {
+        setError(
+          'El departamento seleccionado ya no está disponible. Selecciona nuevamente la oficina y el departamento.'
+        );
+        return;
+      }
+
+      if (
+        departamentoSeleccionado.oficinaId != null &&
+        String(departamentoSeleccionado.oficinaId) !==
+          String(formulario.oficinaId)
+      ) {
+        setError(
+          'El departamento seleccionado no corresponde a la oficina elegida.'
+        );
         return;
       }
     }
@@ -243,7 +353,10 @@ export default function RegistrarEquipo() {
           ? Number(formulario.tiendaId)
           : null,
 
-      oficinaId: formulario.ubicacionTipo === 'OFICINA' ? 1 : null,
+      oficinaId:
+        formulario.ubicacionTipo === 'OFICINA'
+          ? Number(formulario.oficinaId)
+          : null,
 
       departamentoId:
         formulario.ubicacionTipo === 'OFICINA'
@@ -253,6 +366,8 @@ export default function RegistrarEquipo() {
       propietarioId: null,
       observaciones: detalleObservaciones
     };
+
+    console.log('Payload enviado al servidor:', datos);
 
     try {
       setGuardando(true);
@@ -267,19 +382,42 @@ export default function RegistrarEquipo() {
 
       setFormulario({ ...formularioInicial });
       setNombreTienda('');
+      setDepartamentos([]);
     } catch (err) {
-      console.error('Error al registrar el equipo:', err.response?.data || err);
+      console.error(
+        'Error al registrar el equipo:',
+        err.response?.data || err
+      );
+
+      if (err.response?.status === 401) {
+        setError(
+          'Tu sesión ha expirado. Inicia sesión nuevamente.'
+        );
+        return;
+      }
 
       const detalleError = err.response?.data;
 
-      setError(
-        detalleError?.message ||
-          detalleError?.mensaje ||
-          detalleError?.detail ||
-          (typeof detalleError === 'string'
-            ? detalleError
-            : 'No se pudo registrar el equipo. Revisa la consola del navegador.')
-      );
+      if (
+        typeof detalleError === 'object' &&
+        detalleError !== null
+      ) {
+        const textoMensaje =
+          detalleError.message ||
+          detalleError.mensaje ||
+          detalleError.detail ||
+          (detalleError.errors
+            ? Object.values(detalleError.errors).flat().join(' | ')
+            : JSON.stringify(detalleError));
+
+        setError(`Error (${err.response?.status}): ${textoMensaje}`);
+      } else {
+        setError(
+          typeof detalleError === 'string'
+            ? `Error (${err.response?.status}): ${detalleError}`
+            : 'No se pudo registrar el equipo. Revisa la consola del navegador.'
+        );
+      }
     } finally {
       setGuardando(false);
     }
@@ -290,7 +428,9 @@ export default function RegistrarEquipo() {
       <div className="tarjeta-registro">
         <h1>Registrar equipo</h1>
 
-        <p>Completa los datos para agregar un equipo al inventario.</p>
+        <p>
+          Completa los datos para agregar un equipo al inventario.
+        </p>
 
         {mensaje && (
           <div className="mensaje-exito" role="status">
@@ -316,12 +456,18 @@ export default function RegistrarEquipo() {
               >
                 <option value="CPU">CPU</option>
                 <option value="Laptop">Laptop</option>
-                <option value="Impresora normal">Impresora normal</option>
-                <option value="Impresora de caja">Impresora de caja</option>
+                <option value="Impresora normal">
+                  Impresora normal
+                </option>
+                <option value="Impresora de caja">
+                  Impresora de caja
+                </option>
                 <option value="Impresora de etiquetas">
                   Impresora de etiquetas
                 </option>
-                <option value="Reloj marcador">Reloj marcador</option>
+                <option value="Reloj marcador">
+                  Reloj marcador
+                </option>
               </select>
             </label>
 
@@ -388,36 +534,70 @@ export default function RegistrarEquipo() {
                 />
 
                 <datalist id="lista-tiendas">
-                  {tiendas.map((tienda) => {
-                    const idT = tienda.id ?? tienda.Id;
-                    const nomT = tienda.nombre ?? tienda.Nombre;
-                    return <option key={idT} value={nomT} />;
-                  })}
+                  {tiendas.map((tienda) => (
+                    <option
+                      key={tienda.id}
+                      value={tienda.nombre}
+                    />
+                  ))}
                 </datalist>
               </label>
             ) : (
-              <label>
-                Nombre del departamento *
-                <select
-                  name="departamentoId"
-                  value={formulario.departamentoId}
-                  onChange={cambiarCampo}
-                  required
-                  disabled={cargandoDepartamentos}
-                >
-                  <option value="">
-                    {cargandoDepartamentos
-                      ? 'Cargando departamentos...'
-                      : 'Seleccione un departamento'}
-                  </option>
-
-                  {departamentos.map((departamento) => (
-                    <option key={departamento.id} value={departamento.id}>
-                      {departamento.nombre}
+              <>
+                <label>
+                  Nombre de la oficina *
+                  <select
+                    name="oficinaId"
+                    value={formulario.oficinaId}
+                    onChange={cambiarCampo}
+                    required
+                    disabled={cargandoOficinas}
+                  >
+                    <option value="">
+                      {cargandoOficinas
+                        ? 'Cargando oficinas...'
+                        : 'Seleccione una oficina'}
                     </option>
-                  ))}
-                </select>
-              </label>
+
+                    {oficinas.map((oficina) => (
+                      <option key={oficina.id} value={oficina.id}>
+                        {oficina.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label>
+                  Nombre del departamento *
+                  <select
+                    name="departamentoId"
+                    value={formulario.departamentoId}
+                    onChange={cambiarCampo}
+                    required
+                    disabled={
+                      cargandoDepartamentos ||
+                      !formulario.oficinaId
+                    }
+                  >
+                    <option value="">
+                      {!formulario.oficinaId
+                        ? 'Primero seleccione una oficina'
+                        : cargandoDepartamentos
+                          ? 'Cargando departamentos...'
+                          : 'Seleccione un departamento'}
+                    </option>
+
+                    {departamentos.map((departamento) => (
+                      <option
+                        key={departamento.id}
+                        value={departamento.id}
+                      >
+                        {departamento.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </>
             )}
 
             <label className="campo-completo">
