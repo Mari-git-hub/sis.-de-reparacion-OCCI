@@ -89,3 +89,7 @@ C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Ap
 C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\obj\Debug\net9.0\GestionIT.Api.pdb
 C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\obj\Debug\net9.0\GestionIT.Api.genruntimeconfig.cache
 C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\obj\Debug\net9.0\ref\GestionIT.Api.dll
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\bin\Debug\net9.0\BouncyCastle.Cryptography.dll
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\bin\Debug\net9.0\MailKit.dll
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\bin\Debug\net9.0\MimeKit.dll
+C:\Users\marij\OneDrive\Desktop\sis de reparacion  e insumos\bakend\gestionIT.Api\bin\Debug\net9.0\System.Formats.Asn1.dll

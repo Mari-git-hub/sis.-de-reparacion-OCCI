@@ -3,9 +3,11 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using gestionIT.Api.Servicios;
+
 
 var builder = WebApplication.CreateBuilder(args);
-
+builder.Services.AddScoped<CorreoGmailService>();
 // 1. Configuración de CORS para permitir solicitudes desde React/Vite
 builder.Services.AddCors(options =>
 {
@@ -27,6 +29,12 @@ builder.Services.AddDbContext<DbContext>(options =>
 
 // 3. Controladores
 builder.Services.AddControllers();
+
+// Registrar servicio de correo
+builder.Services.Configure<gestionIT.Api.Services.EmailSettings>(
+    builder.Configuration.GetSection("EmailSettings")
+);
+builder.Services.AddTransient<gestionIT.Api.Services.IEmailService, gestionIT.Api.Services.EmailService>();
 
 // 4. Autenticación JWT
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "ClaveSecretaSuperSeguraParaDesarrollo12345!";

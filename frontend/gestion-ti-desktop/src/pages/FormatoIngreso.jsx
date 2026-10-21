@@ -4,6 +4,7 @@ import './FormatoIngreso.css';
 
 const formularioInicial = {
   tiendaId: '',
+  correoSolicitante: '',
   codigoInterno: '',
   nombreEquipo: '',
   tipoEquipo: 'CPU',
@@ -150,6 +151,10 @@ footer {
     <div class="etiqueta">Tienda / sucursal</div>
     <div class="valor">${escapar(tienda)}</div>
   </div>
+  <div class="campo ancho">
+    <div class="etiqueta">Correo del Solicitante (Notificaciones)</div>
+    <div class="valor">${escapar(item.correoSolicitante || 'No indicado')}</div>
+  </div>
 </div>
 
 <h2>Datos del equipo</h2>
@@ -276,6 +281,7 @@ export default function FormatoIngreso() {
       tiendaId: form.tiendaId,
       tiendaNombre: tienda?.nombre || '',
       tiendaCodigo: tienda?.codigo || '',
+      correoSolicitante: form.correoSolicitante,
       codigoInterno: form.codigoInterno,
       nombreEquipo: form.nombreEquipo,
       tipoEquipo: form.tipoEquipo,
@@ -306,6 +312,7 @@ export default function FormatoIngreso() {
     setEditandoId(item.id);
     setForm({
       tiendaId: item.tiendaId == null ? '' : String(item.tiendaId),
+      correoSolicitante: item.correoSolicitante || item.correo_solicitante || '',
       codigoInterno: item.codigoInterno || '',
       nombreEquipo: item.nombreEquipo || '',
       tipoEquipo: item.tipoEquipo || 'CPU',
@@ -343,6 +350,7 @@ export default function FormatoIngreso() {
 
     if (
       !form.tiendaId ||
+      !form.correoSolicitante.trim() ||
       !form.nombreEquipo.trim() ||
       !form.tipoEquipo ||
       !form.marca.trim() ||
@@ -351,13 +359,14 @@ export default function FormatoIngreso() {
       !form.fallaReportada.trim()
     ) {
       setError(
-        'Completa tienda, nombre del equipo, tipo, marca, serie, estado físico y falla reportada.'
+        'Completa tienda, correo del solicitante, nombre del equipo, tipo, marca, serie, estado físico y falla reportada.'
       );
       return;
     }
 
     const datos = {
       tiendaId: Number(form.tiendaId),
+      correoSolicitante: form.correoSolicitante.trim(),
       codigoInterno: form.codigoInterno.trim(),
       nombreEquipo: form.nombreEquipo.trim(),
       tipoEquipo: form.tipoEquipo,
@@ -411,7 +420,9 @@ export default function FormatoIngreso() {
       item.serie,
       item.codigoInterno,
       item.tiendaNombre,
-      item.tiendaCodigo
+      item.tiendaCodigo,
+      item.correoSolicitante,
+      item.correo_solicitante
     ].some((valor) =>
       String(valor ?? '').toLowerCase().includes(filtro)
     )
@@ -464,6 +475,18 @@ export default function FormatoIngreso() {
                   No hay tiendas disponibles. Verifica el endpoint GET /tiendas.
                 </small>
               )}
+            </label>
+
+            <label>
+              Correo del solicitante (para notificaciones) *
+              <input
+                type="email"
+                name="correoSolicitante"
+                value={form.correoSolicitante}
+                onChange={cambiarCampo}
+                required
+                placeholder="ejemplo@correo.com"
+              />
             </label>
 
             <label>
@@ -684,7 +707,7 @@ export default function FormatoIngreso() {
         </div>
 
         <label className="fi-search">
-          Buscar por folio, serie, equipo o tienda
+          Buscar por folio, serie, equipo, tienda o correo
           <input
             value={busqueda}
             onChange={(event) => setBusqueda(event.target.value)}
@@ -705,6 +728,7 @@ export default function FormatoIngreso() {
                 <tr>
                   <th>Folio</th>
                   <th>Equipo / serie</th>
+                  <th>Correo</th>
                   <th>Tienda</th>
                   <th>Fecha</th>
                   <th>Estado</th>
@@ -721,6 +745,9 @@ export default function FormatoIngreso() {
                     <td>
                       {item.nombreEquipo || 'Equipo'}
                       <small>{item.serie || 'Sin serie'}</small>
+                    </td>
+                    <td>
+                      <small>{item.correoSolicitante || item.correo_solicitante || '—'}</small>
                     </td>
                     <td>
                       {[item.tiendaCodigo, item.tiendaNombre]
@@ -745,6 +772,7 @@ export default function FormatoIngreso() {
                             setEditandoId(item.id);
                             setForm({
                               tiendaId: item.tiendaId == null ? '' : String(item.tiendaId),
+                              correoSolicitante: item.correoSolicitante || item.correo_solicitante || '',
                               codigoInterno: item.codigoInterno || '',
                               nombreEquipo: item.nombreEquipo || '',
                               tipoEquipo: item.tipoEquipo || 'CPU',
